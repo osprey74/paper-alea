@@ -1,6 +1,6 @@
 //! Input — ボタン A/B とタッチ（Tap のみ）（DESIGN.md §6.2）。
 //!
-//! [`Input::poll`] を一定周期（[`POLL_MS`]）で呼ぶと、確定した操作を 1 つずつ返す。
+//! [`Input::poll`] を 20ms ごとに呼ぶと、確定した操作を 1 つずつ返す（下の tick 数はこの周期が前提）。
 //! - ボタン：active-low。[`DEBOUNCE_TICKS`] 回連続で同じ状態のときだけ変化とみなし、押下の瞬間を返す。
 //! - タッチ：指を離した時点で判定する。押下から離すまで [`TAP_MAX_MS`] 以内・移動 [`TAP_MAX_MOVE_PX`] 以内を
 //!   Tap とし、着地点の座標を返す（それ以外の動きは捨てる）。座標は有効範囲にクランプする。
@@ -12,9 +12,6 @@ use m5stack_papermono_lite::display::{self, PageRotation};
 use m5stack_papermono_lite::touch;
 
 use crate::board::ioe::{self, SysI2c};
-
-/// ポーリング周期 [ms]。
-pub const POLL_MS: u64 = 20;
 
 /// ボタンの状態変化とみなす連続一致回数（20ms × 2 = 40ms）。
 const DEBOUNCE_TICKS: u8 = 2;

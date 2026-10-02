@@ -100,3 +100,50 @@ fn dither(canvas: &mut Canvas<'_>, area: &Rectangle) {
     });
     let _ = canvas.draw_iter(pixels);
 }
+
+/// FONT_10X20 を `scale` 倍に拡大した文字列を、`center` を中心に描く（結果表示用）。
+pub fn big_text(canvas: &mut Canvas<'_>, text: &str, center: Point, scale: i32, color: Gray2) {
+    let mut scaled = Scaled {
+        inner: canvas,
+        scale,
+        origin: Point::zero(),
+    };
+    let w = text.len() as i32 * 10 * scale;
+    let h = 20 * scale;
+    scaled.origin = center - Point::new(w / 2, h / 2);
+    let style = MonoTextStyle::new(&FONT_10X20, color);
+    let top = TextStyleBuilder::new().baseline(Baseline::Top).build();
+    let _ = Text::with_text_style(text, Point::zero(), style, top).draw(&mut scaled);
+}
+
+/// 1 画素を `scale`×`scale` の正方形に広げて描く DrawTarget。
+struct Scaled<'a, 'b> {
+    inner: &'a mut Canvas<'b>,
+    scale: i32,
+    origin: Point,
+}
+
+impl OriginDimensions for Scaled<'_, '_> {
+    fn size(&self) -> Size {
+        self.inner.size()
+    }
+}
+
+impl DrawTarget for Scaled<'_, '_> {
+    type Color = Gray2;
+    type Error = core::convert::Infallible;
+
+    fn draw_iter<I>(&mut self, pixels: I) -> Result<(), Self::Error>
+    where
+        I: IntoIterator<Item = Pixel<Self::Color>>,
+    {
+        let k = self.scale;
+        for Pixel(p, c) in pixels {
+            let tl = self.origin + Point::new(p.x * k, p.y * k);
+            let _ = Rectangle::new(tl, Size::new(k as u32, k as u32))
+                .into_styled(PrimitiveStyle::with_fill(c))
+                .draw(self.inner);
+        }
+        Ok(())
+    }
+}

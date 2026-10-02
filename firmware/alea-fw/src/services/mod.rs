@@ -3,4 +3,6 @@
 pub mod app;
 pub mod display;
 pub mod input;
+pub mod rng;
+pub mod shake;
 pub mod storage;

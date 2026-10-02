@@ -6,13 +6,20 @@
 
 use esp_println::println;
 
+use crate::apps::coin::CoinApp;
 use crate::apps::debug_refresh::RefreshTestApp;
 use crate::apps::debug_sd::SdCheckApp;
-use crate::apps::launcher::{LauncherApp, TileInfo};
+use crate::apps::dice::DiceApp;
+use crate::apps::launcher::{LauncherApp, Slot, TileInfo};
+use crate::apps::yesno::YesNoApp;
 use crate::services::app::{Action, App, Ctx, Event};
+use crate::services::display::Refresh;
 
 /// 登録アプリ（ランチャーを除く）。新しいアプリはここに足す。
 enum AnyApp {
+    Dice(DiceApp),
+    Coin(CoinApp),
+    YesNo(YesNoApp),
     RefreshTest(RefreshTestApp),
     SdCheck(SdCheckApp),
 }
@@ -21,6 +28,9 @@ enum AnyApp {
 macro_rules! dispatch {
     ($self:expr, $app:ident => $body:expr) => {
         match $self {
+            AnyApp::Dice($app) => $body,
+            AnyApp::Coin($app) => $body,
+            AnyApp::YesNo($app) => $body,
             AnyApp::RefreshTest($app) => $body,
             AnyApp::SdCheck($app) => $body,
         }
@@ -34,6 +44,10 @@ impl AnyApp {
 
     fn id(&self) -> &'static str {
         dispatch!(self, a => a.id())
+    }
+
+    fn enter_gray(&self) -> bool {
+        dispatch!(self, a => a.enter_gray())
     }
 
     async fn on_enter(&mut self, ctx: &mut Ctx) {
@@ -54,7 +68,12 @@ impl AnyApp {
 }
 
 /// 登録アプリ数。
-const APP_COUNT: usize = 2;
+const APP_COUNT: usize = 5;
+
+/// ランチャーのタイル I〜IX に置くアプリの ID（DESIGN.md §1 の収録順）。未登録の ID は未実装として薄く表示する。
+const MAIN_TILE_IDS: [&str; 9] = [
+    "tarot", "iching", "rune", "dice", "coin", "stick", "amida", "omikuji", "yesno",
+];
 
 /// アプリの登録と切替。
 pub struct AppManager {
@@ -68,12 +87,28 @@ impl AppManager {
     /// アプリを登録する。
     pub fn new() -> Self {
         let apps = [
+            AnyApp::Dice(DiceApp::new()),
+            AnyApp::Coin(CoinApp::new()),
+            AnyApp::YesNo(YesNoApp::new()),
             AnyApp::RefreshTest(RefreshTestApp::new()),
             AnyApp::SdCheck(SdCheckApp::new()),
         ];
-        let infos = [apps[0].info(), apps[1].info()];
+        let slot = |k: usize| Slot {
+            app: k,
+            info: apps[k].info(),
+        };
+        let main = MAIN_TILE_IDS.map(|id| apps.iter().position(|a| a.id() == id).map(slot));
+        // 開発用ページ：ID が debug_ で始まるアプリを登録順に並べる。
+        let mut dev = [None; crate::ui::layout::TILE_COUNT];
+        let mut n = 0;
+        for (k, a) in apps.iter().enumerate() {
+            if a.id().starts_with("debug_") && n < dev.len() {
+                dev[n] = Some(slot(k));
+                n += 1;
+            }
+        }
         Self {
-            launcher: LauncherApp::new(&infos),
+            launcher: LauncherApp::new(main, dev),
             apps,
             current: None,
         }
@@ -120,7 +155,12 @@ impl AppManager {
             None => self.launcher.on_enter(ctx).await,
             Some(i) => self.apps[i].on_enter(ctx).await,
         }
-        ctx.full_refresh().await;
+        let gray = to.map_or(self.launcher.enter_gray(), |i| self.apps[i].enter_gray());
+        if gray {
+            ctx.present(Refresh::Gray).await;
+        } else {
+            ctx.full_refresh().await;
+        }
         match to {
             None => self.launcher.on_ready(ctx).await,
             Some(i) => self.apps[i].on_ready(ctx).await,

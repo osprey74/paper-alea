@@ -9,16 +9,17 @@
 use crate::board::ioe::SysI2c;
 use crate::services::display::{Canvas, Display, Refresh};
 use crate::services::input::{Input, InputEvent};
+use crate::services::rng::Rng;
+use crate::services::shake::Shake;
 use crate::services::storage::Storage;
+use alea_core::shake::ShakeEvent;
 
 /// アプリに配送するイベント。
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Event {
-    /// 振り始め（M2 で使う）。
-    #[allow(dead_code)]
+    /// 振り始め（画面は変えない・アニメーションなし方針）。
     ShakeStart,
-    /// 振り終わり（M2 で使う）。
-    #[allow(dead_code)]
+    /// 振り終わり（ここで結果を確定する）。
     ShakeEnd,
     /// タップ（ページ座標）。
     Tap {
@@ -63,6 +64,10 @@ pub trait App {
     fn requires_sd(&self) -> bool {
         false
     }
+    /// 初期画面を 4 階調（`Refresh::Gray`）で出すか。false ならモノクロの全面更新。
+    fn enter_gray(&self) -> bool {
+        false
+    }
     /// 起動時：状態を初期化し、初期画面を描く（反映は AppManager が全面更新で行う）。
     async fn on_enter(&mut self, ctx: &mut Ctx);
     /// 初期画面の全面更新が終わった後の処理（SD の読み込みなど）。
@@ -79,16 +84,30 @@ pub struct Ctx {
     i2c: SysI2c,
     storage: Storage,
     input: Input,
+    shake: Shake,
+    rng: Rng,
+    /// メインループの周期を数える（入力は 2 周期に 1 回調べる）。
+    tick: u32,
 }
 
 impl Ctx {
     /// 初期化済みのサービスから作る。
-    pub fn new(display: Display, i2c: SysI2c, storage: Storage, input: Input) -> Self {
+    pub fn new(
+        display: Display,
+        i2c: SysI2c,
+        storage: Storage,
+        input: Input,
+        shake: Shake,
+        rng: Rng,
+    ) -> Self {
         Self {
             display,
             i2c,
             storage,
             input,
+            shake,
+            rng,
+            tick: 0,
         }
     }
 
@@ -110,13 +129,24 @@ impl Ctx {
     /// 画面に反映する（部分更新の上限に達していれば自動で全面）。描画中の操作は捨てる。
     pub async fn present(&mut self, mode: Refresh) {
         self.display.present(&mut self.i2c, mode).await;
-        self.input.resync();
+        self.resync();
     }
 
     /// 明示的な全面更新。描画中の操作は捨てる。
     pub async fn full_refresh(&mut self) {
         self.display.full_refresh(&mut self.i2c).await;
+        self.resync();
+    }
+
+    /// 描画中に起きた操作・揺れを捨てる。
+    fn resync(&mut self) {
         self.input.resync();
+        self.shake.resync();
+    }
+
+    /// 乱数源。
+    pub fn rng(&mut self) -> &mut Rng {
+        &mut self.rng
     }
 
     /// microSD。
@@ -124,8 +154,22 @@ impl Ctx {
         &mut self.storage
     }
 
-    /// 入力を 1 周期分処理する（メインループ専用。アプリからは呼ばない）。
-    pub(crate) fn poll_input(&mut self) -> Option<Event> {
-        self.input.poll(&mut self.i2c).map(Event::from)
+    /// 入力と揺れを 1 周期分処理する（メインループ専用・[`POLL_MS`] ごと。アプリからは呼ばない）。
+    /// 揺れは毎周期（約 100Hz）、ボタンとタッチは 2 周期に 1 回（入力側の周期 20ms）調べる。
+    pub(crate) fn poll(&mut self) -> Option<Event> {
+        self.tick = self.tick.wrapping_add(1);
+        if let Some(e) = self.shake.poll(&mut self.i2c) {
+            return Some(match e {
+                ShakeEvent::Start => Event::ShakeStart,
+                ShakeEvent::End => Event::ShakeEnd,
+            });
+        }
+        if self.tick % 2 == 0 {
+            return self.input.poll(&mut self.i2c).map(Event::from);
+        }
+        None
     }
 }
+
+/// メインループの周期 [ms]（BMI270 の 100Hz に合わせる）。
+pub const POLL_MS: u64 = 10;

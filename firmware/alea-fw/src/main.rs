@@ -22,9 +22,11 @@ use esp_println::println;
 use static_cell::ConstStaticCell;
 
 use app_manager::AppManager;
-use services::app::Ctx;
+use services::app::{Ctx, POLL_MS};
 use services::display::{Display, PLANE_BYTES};
-use services::input::{Input, POLL_MS};
+use services::input::Input;
+use services::rng::Rng;
+use services::shake::Shake;
 use services::storage::Storage;
 
 // ESP-IDF 第二段ブートローダ用アプリ記述子。
@@ -86,6 +88,10 @@ async fn main(_spawner: Spawner) -> ! {
     )
     .await;
 
+    // BMI270（シェイク検出）と真性乱数源（RNG ＋ ADC1）。
+    let shake = Shake::begin(&mut i2c).await;
+    let rng = Rng::new(peripherals.RNG, peripherals.ADC1);
+
     println!(
         "[Board] bring-up done: ioe={} power_hold={} panel={} sd={} sku={}",
         up.ioe_addr.is_some() as u8,
@@ -97,14 +103,14 @@ async fn main(_spawner: Spawner) -> ! {
 
     let display = Display::new(panel, busy, BW_PLANE.take(), RED_PLANE.take());
     let input = Input::new(btn_a, btn_b, tp_int);
-    let mut ctx = Ctx::new(display, i2c, storage, input);
+    let mut ctx = Ctx::new(display, i2c, storage, input, shake, rng);
     let mut manager = AppManager::new();
     manager.start(&mut ctx).await;
     let mut last_draw = Instant::now();
 
     loop {
         Timer::after(Duration::from_millis(POLL_MS)).await;
-        let Some(event) = ctx.poll_input() else {
+        let Some(event) = ctx.poll() else {
             continue;
         };
         if last_draw.elapsed() < Duration::from_millis(MIN_REDRAW_MS) {

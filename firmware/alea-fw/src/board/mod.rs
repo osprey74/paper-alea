@@ -2,6 +2,7 @@
 //!
 //! アプリはここを直接呼ばない（`services/` の公開 API だけを使う）。
 
+pub mod imu;
 pub mod ioe;
 pub mod panel;
 pub mod sd;

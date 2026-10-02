@@ -6,6 +6,9 @@
 
 #![no_std]
 
+pub mod dice;
+pub mod shake;
+
 /// 32 ビット一様乱数の供給源。
 pub trait RandomSource {
     /// 0〜`u32::MAX` の一様乱数を 1 つ返す。

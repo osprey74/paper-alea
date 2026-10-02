@@ -30,7 +30,6 @@ pub const PLANE_BYTES: usize = display::PLANE_BYTES;
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Refresh {
     /// 4 階調（`0xD7`）。常に全面。
-    #[allow(dead_code)] // タロット（M3）で使う。T3 で実機確認済み。
     Gray,
     /// モノクロ部分（`0xFF`）。回数が上限に達していればモノクロ全面に置き換わる。
     /// 灰色の画素は黒として表示される。
@@ -138,6 +137,48 @@ pub struct Canvas<'a> {
 }
 
 impl Canvas<'_> {
+    /// 2bit/画素の画像（横に MSB から 4 画素/バイト・0=黒〜3=白）を `(x, y)` に描く。
+    pub fn blit_2bpp(&mut self, x: i32, y: i32, w: i32, h: i32, data: &[u8]) {
+        for row in 0..h {
+            for col in 0..w {
+                let i = (row * w + col) as usize;
+                let Some(&byte) = data.get(i / 4) else { return };
+                let level = (byte >> (6 - 2 * (i % 4))) & 0b11;
+                self.set(x + col, y + row, level);
+            }
+        }
+    }
+
+    /// 矩形の中の黒・暗灰を明灰にして、薄く見せる（選べない項目の表示・4 階調表示向け）。
+    pub fn fade_rect(&mut self, x: i32, y: i32, w: i32, h: i32) {
+        for py in y..y + h {
+            for px in x..x + w {
+                if self.get(px, py).is_some_and(|t| t < 2) {
+                    self.set(px, py, 2);
+                }
+            }
+        }
+    }
+
+    /// ページ座標の画素の階調（0=黒〜3=白）。範囲外は `None`。
+    fn get(&self, px: i32, py: i32) -> Option<u8> {
+        if px < 0 || py < 0 || px >= WIDTH || py >= HEIGHT {
+            return None;
+        }
+        let (x, y) = display::page_to_framebuffer(px as u16, py as u16, ROT)?;
+        let i = usize::from(y) * display::BYTES_PER_ROW + usize::from(x) / 8;
+        let mask = 0x80u8 >> (x % 8);
+        let p1 = self.bw.get(i)? & mask != 0;
+        let p2 = self.red.get(i)? & mask != 0;
+        // gray_planes の逆：WHITE=(0,0) / LIGHT=(1,0) / DARK=(0,1) / BLACK=(1,1)。
+        Some(match (p1, p2) {
+            (false, false) => 3,
+            (true, false) => 2,
+            (false, true) => 1,
+            (true, true) => 0,
+        })
+    }
+
     fn set(&mut self, px: i32, py: i32, luma: u8) {
         if px < 0 || py < 0 || px >= WIDTH || py >= HEIGHT {
             return;
