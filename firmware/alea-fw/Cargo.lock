@@ -20,15 +20,22 @@ name = "alea-fw"
 version = "0.1.0"
 dependencies = [
  "alea-core",
+ "aligned",
+ "block-device-adapters",
+ "block-device-driver",
  "embassy-executor",
  "embassy-time",
+ "embedded-fatfs",
  "embedded-graphics",
+ "embedded-io-async 0.7.0",
+ "embedded-partitions",
  "esp-backtrace",
  "esp-bootloader-esp-idf",
  "esp-hal",
  "esp-println",
  "esp-rtos",
  "m5stack-papermono-lite",
+ "sdio",
  "static_cell",
 ]
 
@@ -113,10 +120,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "block-device-adapters"
+version = "0.2.0"
+source = "git+https://github.com/MabezDev/embedded-fatfs?rev=518528cc111fcf65c48abbdeb80735a38eada112#518528cc111fcf65c48abbdeb80735a38eada112"
+dependencies = [
+ "aligned",
+ "block-device-driver",
+ "embedded-io-async 0.7.0",
+]
+
+[[package]]
 name = "block-device-driver"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44c051592f59fe68053524b4c4935249b806f72c1f544cfb7abe4f57c3be258e"
+source = "git+https://github.com/MabezDev/embedded-fatfs?rev=518528cc111fcf65c48abbdeb80735a38eada112#518528cc111fcf65c48abbdeb80735a38eada112"
 dependencies = [
  "aligned",
 ]
@@ -546,6 +562,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "embedded-fatfs"
+version = "0.1.0"
+source = "git+https://github.com/MabezDev/embedded-fatfs?rev=518528cc111fcf65c48abbdeb80735a38eada112#518528cc111fcf65c48abbdeb80735a38eada112"
+dependencies = [
+ "bitflags",
+ "embedded-io-async 0.7.0",
+]
+
+[[package]]
 name = "embedded-graphics"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -621,6 +646,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2564b9f813c544241430e147d8bc454815ef9ac998878d30cc3055449f7fd4c0"
 dependencies = [
  "embedded-io 0.7.1",
+]
+
+[[package]]
+name = "embedded-partitions"
+version = "0.1.0"
+source = "git+https://github.com/MabezDev/embedded-fatfs?rev=518528cc111fcf65c48abbdeb80735a38eada112#518528cc111fcf65c48abbdeb80735a38eada112"
+dependencies = [
+ "block-device-adapters",
+ "embedded-io-async 0.7.0",
 ]
 
 [[package]]

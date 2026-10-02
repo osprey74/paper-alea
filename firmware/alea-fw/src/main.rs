@@ -1,10 +1,8 @@
 //! Alea — M5Stack PaperMono 向け「偶然」ミニアプリ集のファーム本体。
 //!
-//! 現状は M1 の T2〜T4（HAL 初期化・Display・Input）の検証用：
-//! - 四隅と中央に的を描き、タップ位置に印を付けて的とのずれを表示する（T4 の受け入れ確認）
-//! - タップ ＝ 部分更新（`Refresh::Partial`。11 回目は自動で全面）
-//! - ボタン B ＝ 明示的な全面更新（`full_refresh`）
-//! - ボタン A ＝ 印を消して描き直す
+//! 現状は M1 の T2〜T5（HAL 初期化・Display・Input・Storage）の検証用：
+//! - microSD のマウント方式・容量・`/alea` の一覧・読込速度（100KB）を表示する（T5 の受け入れ確認）
+//! - ボタン B ＝ 再スキャン（部分更新） / ボタン A ＝ 全面更新
 //!
 //! T6 で AppManager / Launcher に置き換える。bring-up は Nostos の実機実績を流用する。
 
@@ -22,7 +20,6 @@ use embedded_graphics::mono_font::ascii::FONT_10X20;
 use embedded_graphics::mono_font::MonoTextStyle;
 use embedded_graphics::pixelcolor::Gray2;
 use embedded_graphics::prelude::*;
-use embedded_graphics::primitives::{Circle, Line, PrimitiveStyle};
 use embedded_graphics::text::Text;
 use esp_backtrace as _;
 use esp_hal::gpio::{Input as GpioInput, InputConfig, Level, Output, OutputConfig, Pull};
@@ -33,6 +30,7 @@ use static_cell::ConstStaticCell;
 
 use services::display::{Display, Refresh, PLANE_BYTES};
 use services::input::{Input, InputEvent, POLL_MS};
+use services::storage::{Capacity, DirItem, Storage};
 
 // ESP-IDF 第二段ブートローダ用アプリ記述子。
 esp_bootloader_esp_idf::esp_app_desc!();
@@ -40,11 +38,19 @@ esp_bootloader_esp_idf::esp_app_desc!();
 /// 描画の最小間隔 [ms]（連打で部分更新を連続させない・R-2）。
 const MIN_REDRAW_MS: u64 = 500;
 
-/// 的の位置（四隅と中央・ページ座標）。
-const TARGETS: [(i32, i32); 5] = [(40, 40), (440, 40), (240, 400), (40, 760), (440, 760)];
+/// `/alea` の一覧に表示する最大項目数。
+const MAX_ITEMS: usize = 20;
 
-/// 画面に残すタップ印の数。
-const MAX_TAPS: usize = 20;
+/// Alea のデータディレクトリ。
+const ALEA_DIR: &str = "alea";
+
+/// 読込速度計測用のファイル（無ければ作る）。
+const BENCH_PATH: &str = "alea/bench.bin";
+
+/// 読込速度計測用ファイルの大きさ（100KB）。
+const BENCH_BYTES: u64 = 100 * 1024;
+
+const MB: u64 = 1024 * 1024;
 
 // e-ink 用 1bpp プレーン（480×800 / 8 = 48,000 バイト ×2）。静的確保。
 static BW_PLANE: ConstStaticCell<[u8; PLANE_BYTES]> = ConstStaticCell::new([0; PLANE_BYTES]);
@@ -98,11 +104,17 @@ async fn main(_spawner: Spawner) -> ! {
 
     let mut display = Display::new(panel, busy, BW_PLANE.take(), RED_PLANE.take());
     let mut input = Input::new(btn_a, btn_b, tp_int);
+    let mut storage = Storage::begin(
+        &mut i2c,
+        peripherals.SDHOST,
+        peripherals.GPIO13,
+        peripherals.GPIO12,
+        peripherals.GPIO11,
+    )
+    .await;
 
-    let mut taps: [(i32, i32); MAX_TAPS] = [(0, 0); MAX_TAPS];
-    let mut n_taps: usize = 0;
-
-    draw_touch_test(&mut display, &taps[..n_taps]);
+    let mut report = scan_sd(&mut storage).await;
+    draw_sd_check(&mut display, &storage, &report);
     display.present(&mut i2c, Refresh::Partial).await;
     input.resync();
     let mut last_draw = Instant::now();
@@ -116,32 +128,19 @@ async fn main(_spawner: Spawner) -> ! {
             continue;
         }
         match event {
-            InputEvent::Tap { x, y } => {
-                let p = (i32::from(x), i32::from(y));
-                let (t, dx, dy) = nearest_target(p);
-                println!(
-                    "[Input] tap x={} y={} nearest=({},{}) dx={} dy={}",
-                    p.0, p.1, t.0, t.1, dx, dy
-                );
-                if n_taps == MAX_TAPS {
-                    taps.copy_within(1.., 0);
-                    n_taps -= 1;
-                }
-                taps[n_taps] = p;
-                n_taps += 1;
-                draw_touch_test(&mut display, &taps[..n_taps]);
-                display.present(&mut i2c, Refresh::Partial).await;
-            }
             InputEvent::ButtonB => {
-                println!("[Input] button B");
-                draw_touch_test(&mut display, &taps[..n_taps]);
-                display.full_refresh(&mut i2c).await;
+                println!("[Input] button B (rescan)");
+                report = scan_sd(&mut storage).await;
+                draw_sd_check(&mut display, &storage, &report);
+                display.present(&mut i2c, Refresh::Partial).await;
             }
             InputEvent::ButtonA => {
-                println!("[Input] button A (clear)");
-                n_taps = 0;
-                draw_touch_test(&mut display, &taps[..n_taps]);
-                display.present(&mut i2c, Refresh::Partial).await;
+                println!("[Input] button A (full refresh)");
+                display.full_refresh(&mut i2c).await;
+            }
+            InputEvent::Tap { x, y } => {
+                println!("[Input] tap x={} y={} (ignored)", x, y);
+                continue;
             }
         }
         input.resync();
@@ -149,88 +148,145 @@ async fn main(_spawner: Spawner) -> ! {
     }
 }
 
-/// 最も近い的と、そこからのずれ。
-fn nearest_target(p: (i32, i32)) -> ((i32, i32), i32, i32) {
-    let mut best = TARGETS[0];
-    let mut best_d = i32::MAX;
-    for t in TARGETS {
-        let d = (p.0 - t.0).pow(2) + (p.1 - t.1).pow(2);
-        if d < best_d {
-            best_d = d;
-            best = t;
-        }
-    }
-    (best, p.0 - best.0, p.1 - best.1)
+/// SD 確認の結果。
+struct SdReport {
+    capacity: Option<Capacity>,
+    /// ベンチ読込（バイト数, 所要 ms）。
+    bench: Option<(u64, u64)>,
+    items: [DirItem; MAX_ITEMS],
+    n_items: Option<usize>,
 }
 
-/// タッチ検証画面：的・タップ印・最新タップのずれ。
-fn draw_touch_test(display: &mut Display, taps: &[(i32, i32)]) {
+/// 容量・`/alea` の一覧・ベンチ読込を行う（DESIGN.md §6.5、HANDOFF T5）。
+async fn scan_sd(storage: &mut Storage) -> SdReport {
+    let mut report = SdReport {
+        capacity: None,
+        bench: None,
+        items: [DirItem::EMPTY; MAX_ITEMS],
+        n_items: None,
+    };
+    if !storage.available() {
+        println!("[Storage] not available");
+        return report;
+    }
+    let t0 = Instant::now();
+    report.capacity = storage.capacity().await;
+    match report.capacity {
+        Some(c) => println!(
+            "[Storage] capacity total={}MB free={}MB (took {}ms)",
+            c.total / MB,
+            c.free / MB,
+            t0.elapsed().as_millis()
+        ),
+        None => println!("[Storage] capacity FAILED"),
+    }
+    let made = storage.ensure_file(ALEA_DIR, BENCH_PATH, BENCH_BYTES).await;
+    println!("[Storage] {} ready={}", BENCH_PATH, made as u8);
+    let t0 = Instant::now();
+    if let Some(n) = storage.read_discard(BENCH_PATH).await {
+        let ms = t0.elapsed().as_millis();
+        report.bench = Some((n, ms));
+        println!(
+            "[Storage] bench read {} bytes in {}ms ({} KB/s)",
+            n,
+            ms,
+            if ms > 0 { n * 1000 / ms / 1024 } else { 0 }
+        );
+    } else {
+        println!("[Storage] bench read FAILED");
+    }
+    report.n_items = storage.list(ALEA_DIR, &mut report.items).await;
+    if let Some(n) = report.n_items {
+        for item in &report.items[..n] {
+            println!(
+                "[Storage] /alea/{}{} {}",
+                item.name(),
+                if item.is_dir { "/" } else { "" },
+                item.size
+            );
+        }
+    }
+    let exists = storage.exists(BENCH_PATH).await;
+    let mut head = [0u8; 4];
+    let head_n = storage.read_all(BENCH_PATH, &mut head).await;
+    println!(
+        "[Storage] exists({})={} read_all head={:?} n={:?}",
+        BENCH_PATH, exists as u8, head, head_n
+    );
+    report
+}
+
+/// SD 確認画面。
+fn draw_sd_check(display: &mut Display, storage: &Storage, r: &SdReport) {
     let partials = display.partial_count();
     display.clear();
     let mut canvas = display.canvas();
     let text = MonoTextStyle::new(&FONT_10X20, Gray2::BLACK);
-    let thin = PrimitiveStyle::with_stroke(Gray2::BLACK, 2);
-    let thick = PrimitiveStyle::with_stroke(Gray2::BLACK, 4);
-
-    let _ = Text::new("Alea - touch test", Point::new(110, 120), text).draw(&mut canvas);
-    let _ = Text::new("Tap the 5 targets", Point::new(110, 150), text).draw(&mut canvas);
-    let _ = Text::new("A: clear   B: full refresh", Point::new(110, 180), text)
-        .draw(&mut canvas);
-
-    // 的：半径 20px の円と十字（中心が目標座標）。
-    for (x, y) in TARGETS {
-        let _ = Circle::with_center(Point::new(x, y), 40)
-            .into_styled(thin)
-            .draw(&mut canvas);
-        let _ = Line::new(Point::new(x - 28, y), Point::new(x + 28, y))
-            .into_styled(thin)
-            .draw(&mut canvas);
-        let _ = Line::new(Point::new(x, y - 28), Point::new(x, y + 28))
-            .into_styled(thin)
-            .draw(&mut canvas);
-    }
-
-    // タップ印：太い ×。
-    for &(x, y) in taps {
-        let _ = Line::new(Point::new(x - 10, y - 10), Point::new(x + 10, y + 10))
-            .into_styled(thick)
-            .draw(&mut canvas);
-        let _ = Line::new(Point::new(x - 10, y + 10), Point::new(x + 10, y - 10))
-            .into_styled(thick)
-            .draw(&mut canvas);
-    }
-
     let mut line = FmtBuf::<48>::new();
-    if let Some(&p) = taps.last() {
-        let (_, dx, dy) = nearest_target(p);
-        let _ = write!(line, "last ({},{}) d=({},{})", p.0, p.1, dx, dy);
-        let _ = Text::new(line.as_str(), Point::new(110, 470), text).draw(&mut canvas);
-        line.clear();
+    let mut y = 48;
+    let put = |canvas: &mut _, s: &str, y: &mut i32| {
+        let _ = Text::new(s, Point::new(24, *y), text).draw(canvas);
+        *y += 28;
+    };
+    put(&mut canvas, "Alea - SD check", &mut y);
+    put(&mut canvas, "B: rescan   A: full refresh", &mut y);
+    y += 12;
+    let det = match storage.detected() {
+        Some(true) => "inserted",
+        Some(false) => "empty",
+        None => "unknown",
+    };
+    let _ = write!(line, "TF_DET: {det}");
+    put(&mut canvas, line.as_str(), &mut y);
+    line.clear();
+    let _ = write!(
+        line,
+        "mount: {} {}",
+        storage.bus_width(),
+        if storage.available() { "OK" } else { "FAILED" }
+    );
+    put(&mut canvas, line.as_str(), &mut y);
+    line.clear();
+    match r.capacity {
+        Some(c) => {
+            let _ = write!(line, "total {} MB / free {} MB", c.total / MB, c.free / MB);
+        }
+        None => {
+            let _ = write!(line, "capacity: -");
+        }
     }
-
-    // 的ごとの平均ずれ（d の平均と回数）。
-    let _ = Text::new("avg d per target:", Point::new(110, 510), text).draw(&mut canvas);
-    for (i, t) in TARGETS.iter().enumerate() {
-        let (mut sx, mut sy, mut n) = (0i32, 0i32, 0i32);
-        for &p in taps {
-            let (nt, dx, dy) = nearest_target(p);
-            if nt == *t {
-                sx += dx;
-                sy += dy;
-                n += 1;
+    put(&mut canvas, line.as_str(), &mut y);
+    line.clear();
+    match r.bench {
+        Some((n, ms)) => {
+            let kbs = if ms > 0 { n * 1000 / ms / 1024 } else { 0 };
+            let _ = write!(line, "bench {}KB: {} ms ({} KB/s)", n / 1024, ms, kbs);
+        }
+        None => {
+            let _ = write!(line, "bench: -");
+        }
+    }
+    put(&mut canvas, line.as_str(), &mut y);
+    line.clear();
+    y += 12;
+    put(&mut canvas, "/alea/", &mut y);
+    match r.n_items {
+        Some(0) => put(&mut canvas, "  (empty)", &mut y),
+        Some(n) => {
+            for item in &r.items[..n] {
+                if item.is_dir {
+                    let _ = write!(line, "  {}/", item.name());
+                } else {
+                    let _ = write!(line, "  {}  {}", item.name(), item.size);
+                }
+                put(&mut canvas, line.as_str(), &mut y);
+                line.clear();
             }
         }
-        if n > 0 {
-            let _ = write!(line, "({},{}) n={} ({},{})", t.0, t.1, n, sx / n, sy / n);
-        } else {
-            let _ = write!(line, "({},{}) n=0", t.0, t.1);
-        }
-        let y = 540 + i as i32 * 26;
-        let _ = Text::new(line.as_str(), Point::new(110, y), text).draw(&mut canvas);
-        line.clear();
+        None => put(&mut canvas, "  (not found)", &mut y),
     }
-    let _ = write!(line, "taps {}  partials {}/10", taps.len(), partials);
-    let _ = Text::new(line.as_str(), Point::new(110, 690), text).draw(&mut canvas);
+    let _ = write!(line, "partials {}/10", partials);
+    let _ = Text::new(line.as_str(), Point::new(24, 770), text).draw(&mut canvas);
 }
 
 /// 固定長フォーマットバッファ（no-alloc で `write!` を受ける）。

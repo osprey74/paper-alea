@@ -222,6 +222,12 @@ pub fn set_output_verified(i2c: &mut SysI2c, pyg: u8, high: bool) -> bool {
     false
 }
 
+/// M5IOE1 の入力ピンのレベルを読む（`true` = HIGH）。読み出し失敗は `None`。
+pub fn input_level(i2c: &mut SysI2c, pyg: u8) -> Option<bool> {
+    let (reg, bit) = if pyg <= 8 { (0x07, pyg - 1) } else { (0x08, pyg - 9) };
+    ioe_read_reg(i2c, reg).map(|v| (v >> bit) & 1 == 1)
+}
+
 /// FT6336G から第 1 接触点を読む（Nostos `ioe.rs` の `read_touch`）。
 ///
 /// 戻り値は物理フレームバッファ座標（USB 下向き 480×800・M5GFX 準拠）。非接触・読み出し失敗は `None`。

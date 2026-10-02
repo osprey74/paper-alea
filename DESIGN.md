@@ -209,6 +209,11 @@ pub trait App {
 
 - 起動時に M5IOE1 経由で TF_EN を有効にし、TF_DET でカードの有無を確認する。
 - Nostos の実績は SDHOST の **1bit**（CLK=G13 / CMD=G12 / DAT0=G11）＋ `sdio` ＋ `embedded-fatfs`。まずこの構成を流用し、4bit 化は読込速度の実測を見て判断する。
+  - **実測（2026-10-03・C153・32GB カード）**：100KB の読み込みが 61〜62ms（約 1.6MB/s）。タロット 1 枚（約 86KB）で約 55ms の見込みのため、**4bit 化は行わない**。
+  - TF_DET（IOE1 PYG1、挿入で LOW）は挿入・抜去の両方で正しく読めた。カードの初期化は TF_DET によらず常に試す。
+  - `embedded-fatfs` は `lfn` を有効にする（`hexagrams.json` など 8.3 に収まらない名前を使うため）。
+  - ⚠ SDHOST の DMA はフラッシュ上のデータを読めない。`embedded-fatfs` はクラスタのゼロ埋めにフラッシュ上の定数を使うため、書き込みは必ず RAM のバッファに写してから渡す（`board/sd.rs` の `RamBounce`）。これが無いとディレクトリ作成が `Io` エラーで失敗する。
+  - 空き容量の取得は FAT 全体の走査になることがあり、32GB カードで約 15 秒かかった。起動時には呼ばない（SD 確認画面のみ）。
 - SD が無い場合、SD 不要のアプリ（dice / coin / stick / amida / yesno）は動作させる。SD 必須のアプリは、ランチャー上でグレーアウト表示にする。
 - JSON は `serde-json-core` などの no_std パーサで読み込み、アプリの `on_enter` 時にロードする（採用 crate は M3 までに確定）。
 
@@ -426,3 +431,4 @@ pub trait App {
 | 2026-10-02 | v0.2 | 開発スタックを PlatformIO/Arduino から Rust/embassy（Nostos・papermono-rs 流用）へ変更。リフレッシュ方式を OTP 駆動（Mono / Partial / Gray）に改め、コールドブートの注意を追記。カード画像をリポジトリ外とする方針を明記（D-1 決定、D-8 一部決定） |
 | 2026-10-02 | v0.2.1 | §2 にリフレッシュ方式ごとの実測所要時間を追記。ファームの Core Services のモジュール名を `services/` に変更（標準の `core` クレートとの衝突回避） |
 | 2026-10-03 | v0.2.2 | §9「共通」にタップ対象の設計ルール（最小 64px 角・下端 80px に小さな対象を置かない）とタッチ補正の実測根拠を追記 |
+| 2026-10-03 | v0.2.3 | §6.5 に microSD の実測（1bit で約 1.6MB/s・4bit 化しない）、TF_DET の確認結果、LFN の有効化、DMA とフラッシュ上データの注意を追記 |
