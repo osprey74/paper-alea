@@ -1,7 +1,7 @@
 # DESIGN.md — Alea（paperAlea）
 
 > M5Stack PaperMono 向け「偶然」ミニアプリ集
-> 作成日：2026-10-02 ／ 更新日：2026-10-02 ／ ステータス：設計段階（v0.2）
+> 作成日：2026-10-02 ／ 更新日：2026-10-03 ／ ステータス：M1 完了（v0.3）
 
 ---
 
@@ -144,26 +144,25 @@ paper-alea/
 ## 5. 共通インターフェース
 
 ```rust
-// firmware/alea-fw/src/services/app.rs
-pub enum Event {
-    ShakeStart,
-    ShakeEnd,
-    Tap { x: i16, y: i16 },
-    ButtonA,
-    ButtonB,
-}
+// firmware/alea-fw/src/services/app.rs（M1 で確定）
+pub enum Event { ShakeStart, ShakeEnd, Tap { x: i16, y: i16 }, ButtonA, ButtonB }
+pub enum Action { None, Open(usize) }   // Open はランチャーだけが使う
 
 pub trait App {
     fn id(&self) -> &'static str;         // "tarot" など
     fn title(&self) -> &'static str;      // ランチャー表示名
     fn requires_sd(&self) -> bool { false }
-    fn on_enter(&mut self, ctx: &mut Ctx);              // 起動時：初期画面を描画
-    fn on_event(&mut self, ctx: &mut Ctx, e: &Event);   // イベント処理
-    fn on_exit(&mut self, _ctx: &mut Ctx) {}            // 終了時：バッファ解放
+    async fn on_enter(&mut self, ctx: &mut Ctx);                 // 状態の初期化と初期画面の描画（反映は AppManager）
+    async fn on_ready(&mut self, _ctx: &mut Ctx) {}              // 初期画面の全面更新の後（SD 読込など）
+    async fn on_event(&mut self, ctx: &mut Ctx, e: Event) -> Action;  // 描き直すときは自分で ctx.present()
+    async fn on_exit(&mut self, _ctx: &mut Ctx) {}
 }
-// Ctx は Display / Storage / Rng など Core Services への参照をまとめたもの。
-// 描画完了待ち（BUSY）を async で扱うかどうかは M1 で確定する。
+// Ctx は Display / Input / Storage と I2C を所有し、アプリには描画・反映・ストレージの API だけを見せる。
+// アプリは AppManager の enum（AnyApp）に静的に登録する（no_std・ヒープ無しのため dyn は使わない）。
 ```
+
+- アプリ切替の手順：`on_exit` → 画面を消して `on_enter`（描画のみ）→ 全面更新 → `on_ready`。
+- 直前の描画から 500ms 以内の操作は捨てる（R-2）。描画中の操作も捨てる。
 
 - **ButtonA はすべてのアプリで「ランチャーへ戻る」に固定** する。`AppManager` が横取りし、アプリには配送しない。
 - アプリは `on_enter` で状態を初期化する。前回の結果は保持しない（方針 D-5）。
@@ -213,7 +212,7 @@ pub trait App {
   - TF_DET（IOE1 PYG1、挿入で LOW）は挿入・抜去の両方で正しく読めた。カードの初期化は TF_DET によらず常に試す。
   - `embedded-fatfs` は `lfn` を有効にする（`hexagrams.json` など 8.3 に収まらない名前を使うため）。
   - ⚠ SDHOST の DMA はフラッシュ上のデータを読めない。`embedded-fatfs` はクラスタのゼロ埋めにフラッシュ上の定数を使うため、書き込みは必ず RAM のバッファに写してから渡す（`board/sd.rs` の `RamBounce`）。これが無いとディレクトリ作成が `Io` エラーで失敗する。
-  - 空き容量の取得は FAT 全体の走査になることがあり、32GB カードで約 15 秒かかった。起動時には呼ばない（SD 確認画面のみ）。
+  - 空き容量の取得は、FSInfo が無効なときは FAT 全体の走査になり 32GB カードで約 15 秒かかった（書き込み失敗の後）。FSInfo が有効なら約 5ms。起動時には呼ばない（SD 確認画面のみ）。
 - SD が無い場合、SD 不要のアプリ（dice / coin / stick / amida / yesno）は動作させる。SD 必須のアプリは、ランチャー上でグレーアウト表示にする。
 - JSON は `serde-json-core` などの no_std パーサで読み込み、アプリの `on_enter` 時にロードする（採用 crate は M3 までに確定）。
 
@@ -432,3 +431,4 @@ pub trait App {
 | 2026-10-02 | v0.2.1 | §2 にリフレッシュ方式ごとの実測所要時間を追記。ファームの Core Services のモジュール名を `services/` に変更（標準の `core` クレートとの衝突回避） |
 | 2026-10-03 | v0.2.2 | §9「共通」にタップ対象の設計ルール（最小 64px 角・下端 80px に小さな対象を置かない）とタッチ補正の実測根拠を追記 |
 | 2026-10-03 | v0.2.3 | §6.5 に microSD の実測（1bit で約 1.6MB/s・4bit 化しない）、TF_DET の確認結果、LFN の有効化、DMA とフラッシュ上データの注意を追記 |
+| 2026-10-03 | v0.3 | M1 完了。§5 を実装に合わせて確定（async トレイト・`on_ready`・`Action`・静的登録、切替手順の変更） |

@@ -67,7 +67,7 @@ espflash flash --port COM8 --monitor target\xtensa-esp32s3-none-elf\release\alea
 
 - 仕様の正は `DESIGN.md`。仕様を変更したら DESIGN.md も更新し、§14 変更履歴に1行追記する。HANDOFF.md と食い違う場合は DESIGN.md を正とし、食い違いを報告する。
 - アプリは `services/`（Core Services）の公開 API だけを使い、HAL（`board/`・esp-hal・papermono-rs）を直接呼ばない。
-- 新しいアプリは `firmware/alea-fw/src/apps/<id>.rs`（大きくなれば `apps/<id>/`）に置き、`App` トレイトを実装して `main.rs` で登録する。
+- 新しいアプリは `firmware/alea-fw/src/apps/<id>.rs`（大きくなれば `apps/<id>/`）に置き、`App` トレイトを実装して `app_manager.rs` の `AnyApp`・`dispatch!`・登録表に加える。
 - 乱数・抽選・判定ロジックは可能な限り `crates/alea-core` に置き、ホストでテストする（10万回試行の分布テスト）。
 - ログの接頭辞は `[Board] [Display] [Input] [Storage] [AppMgr] [<AppId>]` に統一する。
 - Nostos・papermono-rs から流用したコードは、ファイル冒頭のコメントに出典（MIT）を書く。
