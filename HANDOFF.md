@@ -55,7 +55,7 @@ paper-alea/firmware/alea-fw/src/
 │  ├─ ioe.rs                   # Nostos ioe.rs 由来
 │  ├─ panel.rs                 # Nostos panel.rs 由来
 │  └─ sd.rs                    # Nostos sdlog.rs 由来（読み込み API を追加）
-├─ core/
+├─ services/                  # Core Services（標準の `core` クレートと衝突しないよう改名）
 │  ├─ app.rs                   # App トレイト・Event
 │  ├─ app_manager.rs
 │  ├─ display.rs
@@ -93,6 +93,9 @@ paper-alea/firmware/alea-fw/src/
 - 充電 IC（IP2315）は I2C バスに常時接続しない（公式注意事項）。M1 では触らない。
 - 各段の成否をシリアルに出力する。
 - **完了条件**：起動ログに全段の OK が出る。失敗した段があっても停止せず、ログを残して続行する。
+- **2026-10-02 実機確認済み**（C153）：PM1 電源保持・電源ボタン設定・IOE1（0x4F）・IP2315 隔離・EPD_VDD・タッチ電源とも OK。
+  R-5：LoRa 電源（PM1 G2）は **出力 HIGH（ON）のまま残っていた**（Nostos が ON にした状態を PM1 が保持）ため、起動時に OFF にした。
+  SKU は `0x50`（ST25R3916）の ACK で判定する（読み出しのみ・初期化しない）。Lite では G2 に触らない。
 
 ### T3. Display
 
@@ -118,6 +121,9 @@ impl Display {
 - 各方式の所要時間を計測し、DESIGN.md §2 の表に追記する。
 - ログ：`[Display] mode=Partial partial=7/10 took=123ms` のように毎回出力する。
 - **完了条件**：RefreshTestApp（T7）で、11回目の描画が全画面リフレッシュになることを目視とログで確認できる。
+- **2026-10-02 実機確認済み**（暫定の検証ファーム：B＝部分更新・A＝全面更新）：部分更新 10 回の後の要求が
+  `mode=Partial->MonoFull` に置き換わることをログと目視で確認。所要時間は DESIGN.md §2 の表に記載。
+  T7 の RefreshTestApp に置き換えた後も同じ確認を行う。
 
 ### T4. Input
 
@@ -167,8 +173,8 @@ impl Display {
 
 - [ ] ビルドが警告なしで通る（ライブラリ由来の警告は除く）
 - [ ] 起動からランチャー表示まで、全初期化段が OK でログに出る
-- [ ] **11回目の部分描画が自動で全画面リフレッシュになる**（ログと目視で確認）
-- [ ] カスタム LUT・差分高速モードがコード上に存在しない
+- [x] **11回目の部分描画が自動で全画面リフレッシュになる**（ログと目視で確認・2026-10-02 暫定ファームで確認）
+- [x] カスタム LUT・差分高速モードがコード上に存在しない
 - [ ] LoRa / NFC / ブザーが動作していない
 - [ ] タッチ座標と描画座標が ±10px 以内で一致する
 - [ ] SD あり：SdCheckApp に情報が表示される／SD なし：起動でき、SdCheckApp がグレーアウトする
@@ -181,7 +187,7 @@ impl Display {
 
 - 仕様の正は `DESIGN.md`。仕様を変更したら DESIGN.md も更新し、変更履歴に1行追記する。
 - §2 の厳守事項 R-1〜R-6 を転記する。
-- アプリは `core/` の公開 API だけを使い、HAL を直接呼ばない。
+- アプリは `services/` の公開 API だけを使い、HAL を直接呼ばない。
 - 新しいアプリは `apps/<id>.rs`（大きくなれば `apps/<id>/`）に置き、`App` トレイトを実装して `main.rs` で登録する。
 - ログの接頭辞は `[Board] [Display] [Input] [Storage] [AppMgr] [<AppId>]` に統一する。
 - 実機でしか確認できない事項は、推測で「完了」にせず、確認手順を書いて総司さんに依頼する。

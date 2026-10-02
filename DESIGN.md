@@ -61,14 +61,15 @@
 
 描画は **工場 OTP 波形のみ** を使う（papermono-rs `ssd1677-otp`、Nostos `panel.rs` を流用）。SSD1677 の 2 枚の 1bpp プレーン（BW / RED、各 480×800/8 = 48,000 バイト）で 4 階調を表す。
 
-| 方式 | Display Update Control 2 | 区分 | 本アプリでの用途 |
-|---|---|---|---|
-| `Mono`（モノクロ全面） | `0xF8`（反転同期）→ `0x14` | 全画面 | アプリ切替、10 回ごとの残像消去 |
-| `Partial`（モノクロ部分） | `0xFF` | 部分 | 通常の結果表示・ランチャー・易の爻追加 |
-| `Gray`（4 階調） | `0xD7` | 全画面（常に） | タロットのカード表示など 4 階調画像 |
+| 方式 | Display Update Control 2 | 区分 | 所要時間（実測） | 本アプリでの用途 |
+|---|---|---|---|---|
+| `Mono`（モノクロ全面） | `0xF8`（反転同期）→ `0x14` | 全画面 | 約 4.65 s | アプリ切替、10 回ごとの残像消去 |
+| `Partial`（モノクロ部分） | `0xFF` | 部分 | 約 1.10 s | 通常の結果表示・ランチャー・易の爻追加 |
+| `Gray`（4 階調） | `0xD7` | 全画面（常に） | 約 4.41 s | タロットのカード表示など 4 階調画像 |
+
+- 所要時間は 2026-10-02 に C153 実機で計測した（USB 給電・`present()` 呼び出しから Deep Sleep までの時間。フレームバッファから RAM への転送も含む）。
 
 - M5GFX の `epd_quality` / `epd_text` / `epd_fast` / `epd_fastest`（カスタム LUT＋明示電圧）は **使わない**。Nostos で移植・実機評価したが、fast は黒が薄い、quality（約 3.4 s）はタップを取りこぼす、fastest 差分は残像が残る、という結果で撤回された（Nostos `firmware/nostos-fw/README.md`「パネル駆動方式」）。公式ドキュメントも「M5GFX の PaperMono 用波形は現時点で不安定」とし、OTP サンプル（https://github.com/m5stack/M5PaperMono-OTP-Demo）を推奨している。
-- 各方式の実測所要時間は M1 で計測して本表に追記する（Nostos では未記録）。
 - 更新後は必ず Deep Sleep Mode 1 に入れる。BUSY（GPIO18）が LOW に戻るまで次のコマンドを送らない。
 - Nostos は部分更新 18 回ごとにフル更新しているが、本アプリは公式注意事項に従い **10 回** とする。18 は papermono-rs が独自に決めた値（`m5stack-papermono-lite/src/display.rs` の `PARTIALS_BEFORE_FULL`。同ファイルのコメントに「公式指針は約 10。旧ファームの 6 の 3 倍として 18」とある）で、実測の裏付けは記録されていない。
 
@@ -124,7 +125,7 @@ paper-alea/
 │     ├─ .cargo/config.toml   # target / build-std 固定
 │     └─ src/
 │        ├─ main.rs
-│        ├─ core/             # app / app_manager / display / input / shake / storage / assets
+│        ├─ services/         # Core Services: app / app_manager / display / input / shake / storage / assets
 │        ├─ board/            # ioe / panel / sd（Nostos・papermono-rs 由来）
 │        ├─ ui/               # widgets / layout
 │        └─ apps/             # launcher / tarot / iching / rune / dice /
@@ -143,7 +144,7 @@ paper-alea/
 ## 5. 共通インターフェース
 
 ```rust
-// firmware/alea-fw/src/core/app.rs
+// firmware/alea-fw/src/services/app.rs
 pub enum Event {
     ShakeStart,
     ShakeEnd,
@@ -421,3 +422,4 @@ pub trait App {
 |---|---|---|
 | 2026-10-02 | v0.1 | 初版 |
 | 2026-10-02 | v0.2 | 開発スタックを PlatformIO/Arduino から Rust/embassy（Nostos・papermono-rs 流用）へ変更。リフレッシュ方式を OTP 駆動（Mono / Partial / Gray）に改め、コールドブートの注意を追記。カード画像をリポジトリ外とする方針を明記（D-1 決定、D-8 一部決定） |
+| 2026-10-02 | v0.2.1 | §2 にリフレッシュ方式ごとの実測所要時間を追記。ファームの Core Services のモジュール名を `services/` に変更（標準の `core` クレートとの衝突回避） |
