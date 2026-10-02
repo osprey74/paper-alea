@@ -30,6 +30,7 @@ pub const PLANE_BYTES: usize = display::PLANE_BYTES;
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Refresh {
     /// 4 階調（`0xD7`）。常に全面。
+    #[allow(dead_code)] // タロット（M3）で使う。T3 で実機確認済み。
     Gray,
     /// モノクロ部分（`0xFF`）。回数が上限に達していればモノクロ全面に置き換わる。
     /// 灰色の画素は黒として表示される。

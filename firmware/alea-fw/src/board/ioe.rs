@@ -222,6 +222,26 @@ pub fn set_output_verified(i2c: &mut SysI2c, pyg: u8, high: bool) -> bool {
     false
 }
 
+/// FT6336G から第 1 接触点を読む（Nostos `ioe.rs` の `read_touch`）。
+///
+/// 戻り値は物理フレームバッファ座標（USB 下向き 480×800・M5GFX 準拠）。非接触・読み出し失敗は `None`。
+pub fn read_touch(i2c: &mut SysI2c) -> Option<(u16, u16)> {
+    use m5stack_papermono_lite::touch;
+    const LEN: usize = 1 + (touch::MAX_POINTS as usize) * touch::M5GFX_POINT_BYTES;
+    let mut buf = [0u8; LEN];
+    if i2c
+        .write_read(addresses::FT6336G, &[touch::M5GFX_STATUS_REG], &mut buf)
+        .is_err()
+    {
+        return None;
+    }
+    let (n, x, y, _x2, _y2) = touch::decode_m5gfx(&buf)?;
+    if n == 0 {
+        return None;
+    }
+    Some((x, y))
+}
+
 /// M5PM1 の「I2C アイドルスリープ」レジスタ（M5Unified `M5PM1_REG_I2C_CFG`）。
 const PM1_REG_I2C_CFG: u8 = 0x09;
 /// M5PM1 のウォッチドッグカウンタ（M5Unified `M5PM1_REG_WDT_CNT`）。

@@ -43,6 +43,9 @@ espflash flash --port COM8 --monitor target\xtensa-esp32s3-none-elf\release\alea
   `timeout` で時間を区切る）。`espflash monitor` 単体や素の SerialPort で COM8 を開くと USB-Serial-JTAG が
   download モードに落ちて無音になる（Nostos `firmware/nostos-fw/experiments/README.md`。2026-10-02 に Alea でも再現）。
   復帰は `espflash reset --port COM8`。
+- バックグラウンドのログ記録を途中で止めるときは、親のシェルを止めるだけでは espflash が残って COM8 を
+  掴み続ける（次の書き込みが「アクセスが拒否されました」で失敗する）。`Get-Process espflash` で確認して
+  `Stop-Process` で止める。
 - リンカの「LOAD segment with RWX permissions」警告はツールチェーン由来（Nostos でも同じ）。
 
 ## 厳守事項（パネル保護・互換性）

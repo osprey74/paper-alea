@@ -1,9 +1,10 @@
 //! Alea — M5Stack PaperMono 向け「偶然」ミニアプリ集のファーム本体。
 //!
-//! 現状は M1 の T2（HAL 初期化）＋ T3（Display）の検証用：
-//! - 起動時に 4 階調のテスト画面を描く（`Refresh::Gray`）
-//! - ボタン B ＝ カウンタを進めて部分更新（`Refresh::Partial`。11 回目は自動で全面）
-//! - ボタン A ＝ 明示的な全面更新（`full_refresh`）
+//! 現状は M1 の T2〜T4（HAL 初期化・Display・Input）の検証用：
+//! - 四隅と中央に的を描き、タップ位置に印を付けて的とのずれを表示する（T4 の受け入れ確認）
+//! - タップ ＝ 部分更新（`Refresh::Partial`。11 回目は自動で全面）
+//! - ボタン B ＝ 明示的な全面更新（`full_refresh`）
+//! - ボタン A ＝ 印を消して描き直す
 //!
 //! T6 で AppManager / Launcher に置き換える。bring-up は Nostos の実機実績を流用する。
 
@@ -21,16 +22,17 @@ use embedded_graphics::mono_font::ascii::FONT_10X20;
 use embedded_graphics::mono_font::MonoTextStyle;
 use embedded_graphics::pixelcolor::Gray2;
 use embedded_graphics::prelude::*;
-use embedded_graphics::primitives::{PrimitiveStyle, Rectangle};
+use embedded_graphics::primitives::{Circle, Line, PrimitiveStyle};
 use embedded_graphics::text::Text;
 use esp_backtrace as _;
-use esp_hal::gpio::{Input, InputConfig, Level, Output, OutputConfig, Pull};
+use esp_hal::gpio::{Input as GpioInput, InputConfig, Level, Output, OutputConfig, Pull};
 use esp_hal::i2c::master::{Config as I2cConfig, I2c};
 use esp_hal::timer::timg::TimerGroup;
 use esp_println::println;
 use static_cell::ConstStaticCell;
 
-use services::display::{Display, Refresh, PLANE_BYTES, WIDTH};
+use services::display::{Display, Refresh, PLANE_BYTES};
+use services::input::{Input, InputEvent, POLL_MS};
 
 // ESP-IDF 第二段ブートローダ用アプリ記述子。
 esp_bootloader_esp_idf::esp_app_desc!();
@@ -38,8 +40,11 @@ esp_bootloader_esp_idf::esp_app_desc!();
 /// 描画の最小間隔 [ms]（連打で部分更新を連続させない・R-2）。
 const MIN_REDRAW_MS: u64 = 500;
 
-/// ボタンのポーリング周期 [ms]。
-const POLL_MS: u64 = 20;
+/// 的の位置（四隅と中央・ページ座標）。
+const TARGETS: [(i32, i32); 5] = [(40, 40), (440, 40), (240, 400), (40, 760), (440, 760)];
+
+/// 画面に残すタップ印の数。
+const MAX_TAPS: usize = 20;
 
 // e-ink 用 1bpp プレーン（480×800 / 8 = 48,000 バイト ×2）。静的確保。
 static BW_PLANE: ConstStaticCell<[u8; PLANE_BYTES]> = ConstStaticCell::new([0; PLANE_BYTES]);
@@ -57,11 +62,13 @@ async fn main(_spawner: Spawner) -> ! {
     // R-6: ブザー（GPIO42）は LOW 固定で鳴らさない。
     let _buzzer = Output::new(peripherals.GPIO42, Level::Low, OutputConfig::default());
 
-    // 物理ボタン（active-low・内部プルアップ）。
-    let btn_a = Input::new(peripherals.GPIO2, InputConfig::default().with_pull(Pull::Up));
-    let btn_b = Input::new(peripherals.GPIO3, InputConfig::default().with_pull(Pull::Up));
+    let pull_up = InputConfig::default().with_pull(Pull::Up);
+    // 物理ボタン（active-low）・FT6336G タッチ割り込み（active-low）。
+    let btn_a = GpioInput::new(peripherals.GPIO2, pull_up);
+    let btn_b = GpioInput::new(peripherals.GPIO3, pull_up);
+    let tp_int = GpioInput::new(peripherals.GPIO4, pull_up);
     // SSD1677 BUSY（データシート準拠プルアップ）。
-    let busy = Input::new(peripherals.GPIO18, InputConfig::default().with_pull(Pull::Up));
+    let busy = GpioInput::new(peripherals.GPIO18, pull_up);
 
     // システム I2C（GPIO47 SDA / GPIO48 SCL・100 kHz）→ 電源レール bring-up。
     let mut i2c = I2c::new(peripherals.I2C0, I2cConfig::default())
@@ -90,91 +97,140 @@ async fn main(_spawner: Spawner) -> ! {
     );
 
     let mut display = Display::new(panel, busy, BW_PLANE.take(), RED_PLANE.take());
+    let mut input = Input::new(btn_a, btn_b, tp_int);
 
-    draw_gray_test(&mut display);
-    display.present(&mut i2c, Refresh::Gray).await;
+    let mut taps: [(i32, i32); MAX_TAPS] = [(0, 0); MAX_TAPS];
+    let mut n_taps: usize = 0;
 
-    let mut draws: u32 = 0;
-    let mut prev_a = false;
-    let mut prev_b = false;
+    draw_touch_test(&mut display, &taps[..n_taps]);
+    display.present(&mut i2c, Refresh::Partial).await;
+    input.resync();
     let mut last_draw = Instant::now();
 
     loop {
         Timer::after(Duration::from_millis(POLL_MS)).await;
-        let a = btn_a.is_low();
-        let b = btn_b.is_low();
-        let a_pressed = a && !prev_a;
-        let b_pressed = b && !prev_b;
-        prev_a = a;
-        prev_b = b;
-        if !(a_pressed || b_pressed) {
+        let Some(event) = input.poll(&mut i2c) else {
             continue;
-        }
+        };
         if last_draw.elapsed() < Duration::from_millis(MIN_REDRAW_MS) {
             continue;
         }
-
-        draws += 1;
-        if b_pressed {
-            println!("[Input] button B");
-            draw_counter(&mut display, draws, "B: partial");
-            display.present(&mut i2c, Refresh::Partial).await;
-        } else {
-            println!("[Input] button A");
-            draw_counter(&mut display, draws, "A: full refresh");
-            display.full_refresh(&mut i2c).await;
+        match event {
+            InputEvent::Tap { x, y } => {
+                let p = (i32::from(x), i32::from(y));
+                let (t, dx, dy) = nearest_target(p);
+                println!(
+                    "[Input] tap x={} y={} nearest=({},{}) dx={} dy={}",
+                    p.0, p.1, t.0, t.1, dx, dy
+                );
+                if n_taps == MAX_TAPS {
+                    taps.copy_within(1.., 0);
+                    n_taps -= 1;
+                }
+                taps[n_taps] = p;
+                n_taps += 1;
+                draw_touch_test(&mut display, &taps[..n_taps]);
+                display.present(&mut i2c, Refresh::Partial).await;
+            }
+            InputEvent::ButtonB => {
+                println!("[Input] button B");
+                draw_touch_test(&mut display, &taps[..n_taps]);
+                display.full_refresh(&mut i2c).await;
+            }
+            InputEvent::ButtonA => {
+                println!("[Input] button A (clear)");
+                n_taps = 0;
+                draw_touch_test(&mut display, &taps[..n_taps]);
+                display.present(&mut i2c, Refresh::Partial).await;
+            }
         }
+        input.resync();
         last_draw = Instant::now();
     }
 }
 
-/// 起動時のテスト画面：4 階調の帯と見出し。
-fn draw_gray_test(display: &mut Display) {
-    display.clear();
-    let mut canvas = display.canvas();
-    let text = MonoTextStyle::new(&FONT_10X20, Gray2::BLACK);
-    let _ = Text::new("Alea", Point::new(24, 48), text).draw(&mut canvas);
-    let _ = Text::new("4-gray test (Refresh::Gray)", Point::new(24, 84), text).draw(&mut canvas);
-    let bar_w = WIDTH / 4;
-    for i in 0..4u8 {
-        let _ = Rectangle::new(Point::new(i32::from(i) * bar_w, 120), Size::new(bar_w as u32, 480))
-            .into_styled(PrimitiveStyle::with_fill(Gray2::new(i)))
-            .draw(&mut canvas);
+/// 最も近い的と、そこからのずれ。
+fn nearest_target(p: (i32, i32)) -> ((i32, i32), i32, i32) {
+    let mut best = TARGETS[0];
+    let mut best_d = i32::MAX;
+    for t in TARGETS {
+        let d = (p.0 - t.0).pow(2) + (p.1 - t.1).pow(2);
+        if d < best_d {
+            best_d = d;
+            best = t;
+        }
     }
-    let _ = Text::new("B: partial  /  A: full refresh", Point::new(24, 680), text)
-        .draw(&mut canvas);
+    (best, p.0 - best.0, p.1 - best.1)
 }
 
-/// ボタン操作後の画面：描画回数と部分更新回数。
-fn draw_counter(display: &mut Display, draws: u32, action: &str) {
+/// タッチ検証画面：的・タップ印・最新タップのずれ。
+fn draw_touch_test(display: &mut Display, taps: &[(i32, i32)]) {
     let partials = display.partial_count();
     display.clear();
     let mut canvas = display.canvas();
     let text = MonoTextStyle::new(&FONT_10X20, Gray2::BLACK);
-    let mut line = FmtBuf::<48>::new();
-    let _ = Text::new("Alea - refresh test", Point::new(24, 48), text).draw(&mut canvas);
-    let _ = Text::new(action, Point::new(24, 84), text).draw(&mut canvas);
-    let _ = write!(line, "draw #{draws}");
-    let _ = Text::new(line.as_str(), Point::new(24, 160), text).draw(&mut canvas);
-    line.clear();
-    let _ = write!(line, "partials before this draw: {partials}/10");
-    let _ = Text::new(line.as_str(), Point::new(24, 196), text).draw(&mut canvas);
-    // 部分更新回数を 10 個の枠で示す（塗り = 済み）。
-    for i in 0..10i32 {
-        let style = if i < i32::from(partials) {
-            PrimitiveStyle::with_fill(Gray2::BLACK)
-        } else {
-            PrimitiveStyle::with_stroke(Gray2::BLACK, 3)
-        };
-        let _ = Rectangle::new(Point::new(24 + i * 44, 240), Size::new(36, 36))
-            .into_styled(style)
+    let thin = PrimitiveStyle::with_stroke(Gray2::BLACK, 2);
+    let thick = PrimitiveStyle::with_stroke(Gray2::BLACK, 4);
+
+    let _ = Text::new("Alea - touch test", Point::new(110, 120), text).draw(&mut canvas);
+    let _ = Text::new("Tap the 5 targets", Point::new(110, 150), text).draw(&mut canvas);
+    let _ = Text::new("A: clear   B: full refresh", Point::new(110, 180), text)
+        .draw(&mut canvas);
+
+    // 的：半径 20px の円と十字（中心が目標座標）。
+    for (x, y) in TARGETS {
+        let _ = Circle::with_center(Point::new(x, y), 40)
+            .into_styled(thin)
+            .draw(&mut canvas);
+        let _ = Line::new(Point::new(x - 28, y), Point::new(x + 28, y))
+            .into_styled(thin)
+            .draw(&mut canvas);
+        let _ = Line::new(Point::new(x, y - 28), Point::new(x, y + 28))
+            .into_styled(thin)
             .draw(&mut canvas);
     }
-    // 位置の移動で残像を見やすくするマーカー。
-    let x = 24 + (draws as i32 % 10) * 44;
-    let _ = Rectangle::new(Point::new(x, 320), Size::new(36, 300))
-        .into_styled(PrimitiveStyle::with_fill(Gray2::BLACK))
-        .draw(&mut canvas);
+
+    // タップ印：太い ×。
+    for &(x, y) in taps {
+        let _ = Line::new(Point::new(x - 10, y - 10), Point::new(x + 10, y + 10))
+            .into_styled(thick)
+            .draw(&mut canvas);
+        let _ = Line::new(Point::new(x - 10, y + 10), Point::new(x + 10, y - 10))
+            .into_styled(thick)
+            .draw(&mut canvas);
+    }
+
+    let mut line = FmtBuf::<48>::new();
+    if let Some(&p) = taps.last() {
+        let (_, dx, dy) = nearest_target(p);
+        let _ = write!(line, "last ({},{}) d=({},{})", p.0, p.1, dx, dy);
+        let _ = Text::new(line.as_str(), Point::new(110, 470), text).draw(&mut canvas);
+        line.clear();
+    }
+
+    // 的ごとの平均ずれ（d の平均と回数）。
+    let _ = Text::new("avg d per target:", Point::new(110, 510), text).draw(&mut canvas);
+    for (i, t) in TARGETS.iter().enumerate() {
+        let (mut sx, mut sy, mut n) = (0i32, 0i32, 0i32);
+        for &p in taps {
+            let (nt, dx, dy) = nearest_target(p);
+            if nt == *t {
+                sx += dx;
+                sy += dy;
+                n += 1;
+            }
+        }
+        if n > 0 {
+            let _ = write!(line, "({},{}) n={} ({},{})", t.0, t.1, n, sx / n, sy / n);
+        } else {
+            let _ = write!(line, "({},{}) n=0", t.0, t.1);
+        }
+        let y = 540 + i as i32 * 26;
+        let _ = Text::new(line.as_str(), Point::new(110, y), text).draw(&mut canvas);
+        line.clear();
+    }
+    let _ = write!(line, "taps {}  partials {}/10", taps.len(), partials);
+    let _ = Text::new(line.as_str(), Point::new(110, 690), text).draw(&mut canvas);
 }
 
 /// 固定長フォーマットバッファ（no-alloc で `write!` を受ける）。
