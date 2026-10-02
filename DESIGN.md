@@ -1,7 +1,7 @@
 # DESIGN.md — Alea（paperAlea）
 
 > M5Stack PaperMono 向け「偶然」ミニアプリ集
-> 作成日：2026-10-02 ／ ステータス：設計段階（v0.1）
+> 作成日：2026-10-02 ／ 更新日：2026-10-02 ／ ステータス：設計段階（v0.2）
 
 ---
 
@@ -10,7 +10,7 @@
 | 項目 | 内容 |
 |---|---|
 | 作品名（画面表記） | **Alea**（ラテン語「骰子・偶然」） |
-| プロジェクト／リポジトリ名 | `paper-alea`（表記は `paperAlea`）※最終決定は未了 |
+| プロジェクト／リポジトリ名 | `paper-alea`（表記は `paperAlea`）／ https://github.com/osprey74/paper-alea |
 | 対象機種 | M5Stack PaperMono（C153）／PaperMono-Lite（C153-Lite）でも動作可能な範囲に留める |
 | コンセプト | タロット・易・ルーンなどの占いと、ダイス・コインなどの日常の偶然を1台で切り替えて実行する |
 | 基本操作 | **本体を振る**ことで結果を決める。選択系の操作はタッチとボタンで行う |
@@ -57,47 +57,37 @@
 3. カスタム波形は使わない。内蔵 OTP 波形を使用する。
 4. 長時間の連続使用後に黒点が出た場合は、しばらく放置してから全画面リフレッシュを行う。
 
-### リフレッシュモード（M5GFX 公式実測値）
+### リフレッシュ方式（Nostos の実機実績に基づく）
 
-| モード | 1回あたり | 本アプリでの用途 |
-|---|---|---|
-| `epd_quality` | 4.71 s | タロットのカード表示（4階調画像） |
-| `epd_text` | 0.45 s | 通常の結果表示・ランチャー |
-| `epd_fast` | 0.34 s | 易の爻追加など、小さな部分更新 |
-| `epd_fastest` | 0.07 s | 原則使用しない |
+描画は **工場 OTP 波形のみ** を使う（papermono-rs `ssd1677-otp`、Nostos `panel.rs` を流用）。SSD1677 の 2 枚の 1bpp プレーン（BW / RED、各 480×800/8 = 48,000 バイト）で 4 階調を表す。
 
-> ⚠ 公式ドキュメントでは「M5GFX の PaperMono 用波形は現時点で不安定」とされ、メーカーの OTP サンプル（https://github.com/m5stack/M5PaperMono-OTP-Demo）が推奨されている。**描画ドライバはまず Nostos で実績のある方式を流用する**こと（§11 未確定事項 D-1）。
+| 方式 | Display Update Control 2 | 区分 | 本アプリでの用途 |
+|---|---|---|---|
+| `Mono`（モノクロ全面） | `0xF8`（反転同期）→ `0x14` | 全画面 | アプリ切替、10 回ごとの残像消去 |
+| `Partial`（モノクロ部分） | `0xFF` | 部分 | 通常の結果表示・ランチャー・易の爻追加 |
+| `Gray`（4 階調） | `0xD7` | 全画面（常に） | タロットのカード表示など 4 階調画像 |
+
+- M5GFX の `epd_quality` / `epd_text` / `epd_fast` / `epd_fastest`（カスタム LUT＋明示電圧）は **使わない**。Nostos で移植・実機評価したが、fast は黒が薄い、quality（約 3.4 s）はタップを取りこぼす、fastest 差分は残像が残る、という結果で撤回された（Nostos `firmware/nostos-fw/README.md`「パネル駆動方式」）。公式ドキュメントも「M5GFX の PaperMono 用波形は現時点で不安定」とし、OTP サンプル（https://github.com/m5stack/M5PaperMono-OTP-Demo）を推奨している。
+- 各方式の実測所要時間は M1 で計測して本表に追記する（Nostos では未記録）。
+- 更新後は必ず Deep Sleep Mode 1 に入れる。BUSY（GPIO18）が LOW に戻るまで次のコマンドを送らない。
+- Nostos は部分更新 18 回ごとにフル更新しているが、本アプリは公式注意事項に従い **10 回** とする。
+
+### コールドブート時の注意（Nostos で判明）
+
+完全電源断からの起動直後、M5IOE1 の io3（EPD_VDD_ENABLE）が出力設定どおりに駆動されず、パネルが無電源のまま固まることがある。電源・リセット系の IOE1 ピンは、出力設定後に IN レジスタを読み戻し、追従しなければ「入力＋プルアップ → 出力」に切り替え直す（Nostos `ioe.rs` の `set_output_verified()` を流用）。
 
 ---
 
 ## 3. 開発環境
 
-- PlatformIO + Arduino framework（C++17）
-- 主要ライブラリ：M5Unified（develop）、M5GFX、M5PM1、M5IOE1、ArduinoJson
-- `platformio.ini` の基本形は公式記載を踏襲する。LoRa・NFC 関連の依存は削除する。
-
-```ini
-[env:m5stack-papermono]
-platform = espressif32@6.12.0
-board = esp32-s3-devkitm-1
-framework = arduino
-board_build.partitions = default_16MB.csv
-board_upload.flash_size = 16MB
-board_upload.maximum_size = 16777216
-board_build.arduino.memory_type = qio_opi
-build_flags =
-    -DESP32S3
-    -DBOARD_HAS_PSRAM
-    -mfix-esp32-psram-cache-issue
-    -DCORE_DEBUG_LEVEL=0
-    -DARDUINO_USB_CDC_ON_BOOT=1
-    -DARDUINO_USB_MODE=1
-lib_deps =
-    M5Unified = https://github.com/m5stack/M5Unified#develop
-    M5PM1 = https://github.com/m5stack/M5PM1
-    M5IOE1 = https://github.com/m5stack/M5IOE1
-    bblanchon/ArduinoJson@^7
-```
+- **Rust / embassy（no_std）**。Nostos と同じ構成で、BSP は [`canardleteer/papermono-rs`](https://github.com/canardleteer/papermono-rs)（MIT、`g:\dev\papermono-rs`）を path 依存で参照する。
+  - 依存は **`m5stack-papermono-lite` のみ**（LoRa/NFC を含む `m5stack-papermono` は使わない＝Lite 互換）。
+  - esp-hal / esp-rtos / embassy の版は Nostos（`esp-hal-v1.2.0-rc.0` tag）に揃える。`Cargo.lock` も Nostos から引き継いだ。
+- ツールチェーン：espup の `esp` toolchain。`. C:\Users\ospre\export-esp.ps1` で環境を通す。
+- ビルド：`firmware/alea-fw` で `cargo +esp build --release`
+- 書き込み：`espflash flash --port COM8 --monitor target\xtensa-esp32s3-none-elf\release\alea-fw`
+- ハード非依存のロジックは `crates/alea-core`（`no_std`）に置き、リポジトリ直下で `cargo test` する。
+- 補助ツール（画像変換など）は Python（Pillow + NumPy）。
 
 ---
 
@@ -113,71 +103,69 @@ lib_deps =
 │ Core Services                                │
 │  Display  Input  Shake  Rng  Storage  Assets │
 ├──────────────────────────────────────────────┤
-│ HAL（M5Unified / M5PM1 / M5IOE1 / ドライバ）  │
+│ HAL（esp-hal / papermono-rs / Nostos 流用部） │
 └──────────────────────────────────────────────┘
 ```
 
 - アプリは **Core Services だけに依存** し、HAL を直接呼ばない。
 - アプリ同士は互いに依存しない。
-- メインループは単一タスクのイベント駆動とする。`Input` と `Shake` がイベントを発行し、`AppManager` が現在のアプリに配送する。
+- メインループは embassy の単一タスクのイベント駆動とする。`Input` と `Shake` がイベントを発行し、`AppManager` が現在のアプリに配送する。
 
 ### ディレクトリ構成
 
 ```
 paper-alea/
-├─ platformio.ini
-├─ DESIGN.md / HANDOFF.md / CLAUDE.md
-├─ src/
-│  ├─ main.cpp
-│  ├─ core/
-│  │  ├─ App.h               # 共通インターフェース
-│  │  ├─ AppManager.{h,cpp}
-│  │  ├─ Display.{h,cpp}     # 描画・リフレッシュ回数管理
-│  │  ├─ Input.{h,cpp}       # ボタン・タッチ
-│  │  ├─ Shake.{h,cpp}       # IMU シェイク検出
-│  │  ├─ Rng.{h,cpp}         # 一様乱数
-│  │  ├─ Storage.{h,cpp}     # microSD 初期化・ファイル I/O
-│  │  └─ Assets.{h,cpp}      # .a2b 画像・JSON・フォント読込
-│  ├─ ui/
-│  │  ├─ Widgets.{h,cpp}     # 見出し帯・ボタン・区切り線
-│  │  └─ Layout.h            # 座標定数
-│  └─ apps/
-│     ├─ launcher/  tarot/  iching/  rune/  dice/
-│     └─ coin/  stick/  amida/  omikuji/  yesno/
+├─ Cargo.toml                 # ホスト用ワークスペース（crates/*）。firmware は exclude
+├─ DESIGN.md / HANDOFF.md / CLAUDE.md / README.md
+├─ crates/
+│  └─ alea-core/              # no_std のハード非依存ロジック（乱数・抽選・易・ダイス等）
+├─ firmware/
+│  └─ alea-fw/                # Xtensa ファーム（独立ワークスペース）
+│     ├─ .cargo/config.toml   # target / build-std 固定
+│     └─ src/
+│        ├─ main.rs
+│        ├─ core/             # app / app_manager / display / input / shake / storage / assets
+│        ├─ board/            # ioe / panel / sd（Nostos・papermono-rs 由来）
+│        ├─ ui/               # widgets / layout
+│        └─ apps/             # launcher / tarot / iching / rune / dice /
+│                             # coin / stick / amida / omikuji / yesno
 ├─ sd/                        # microSD にコピーする内容の原本
 │  └─ alea/ …（§7）
-├─ tools/
-│  ├─ convert_cards.py        # カード画像 → .a2b 一括変換
-│  └─ preview_a2b.py          # .a2b → PNG 逆変換（目視確認用）
-└─ test/                      # 乱数分布・ロジックのネイティブテスト
+└─ tools/
+   ├─ convert_cards.py        # カード画像 → .a2b 一括変換
+   └─ preview_a2b.py          # .a2b → PNG 逆変換（目視確認用）
 ```
+
+- 乱数・抽選などのテストは `crates/alea-core` の `cargo test` で行う（§12）。
 
 ---
 
 ## 5. 共通インターフェース
 
-```cpp
-// src/core/App.h
-enum class EventType { ShakeStart, ShakeEnd, Tap, ButtonA, ButtonB };
+```rust
+// firmware/alea-fw/src/core/app.rs
+pub enum Event {
+    ShakeStart,
+    ShakeEnd,
+    Tap { x: i16, y: i16 },
+    ButtonA,
+    ButtonB,
+}
 
-struct Event {
-  EventType type;
-  int16_t x = 0, y = 0;   // Tap のみ
-};
-
-class App {
-public:
-  virtual ~App() = default;
-  virtual const char* id() const = 0;        // "tarot" など
-  virtual const char* title() const = 0;     // ランチャー表示名
-  virtual void onEnter() = 0;                // 起動時：初期画面を描画
-  virtual void onEvent(const Event& e) = 0;  // イベント処理
-  virtual void onExit() {}                   // 終了時：バッファ解放
-};
+pub trait App {
+    fn id(&self) -> &'static str;         // "tarot" など
+    fn title(&self) -> &'static str;      // ランチャー表示名
+    fn requires_sd(&self) -> bool { false }
+    fn on_enter(&mut self, ctx: &mut Ctx);              // 起動時：初期画面を描画
+    fn on_event(&mut self, ctx: &mut Ctx, e: &Event);   // イベント処理
+    fn on_exit(&mut self, _ctx: &mut Ctx) {}            // 終了時：バッファ解放
+}
+// Ctx は Display / Storage / Rng など Core Services への参照をまとめたもの。
+// 描画完了待ち（BUSY）を async で扱うかどうかは M1 で確定する。
 ```
 
 - **ButtonA はすべてのアプリで「ランチャーへ戻る」に固定** する。`AppManager` が横取りし、アプリには配送しない。
-- アプリは `onEnter` で状態を初期化する。前回の結果は保持しない（方針 D-5）。
+- アプリは `on_enter` で状態を初期化する。前回の結果は保持しない（方針 D-5）。
 
 ---
 
@@ -185,8 +173,9 @@ public:
 
 ### 6.1 Display
 
-- フレームバッファは PSRAM 上に確保する。
-- API の例：`draw(mode)`、`drawImage2bpp(x, y, buf, w, h)`、`text(...)`、`fullRefresh()`
+- フレームバッファは BW / RED の 1bpp プレーン 2 枚（各 48,000 バイト）。Nostos と同様に静的確保とし、画像読込バッファは PSRAM に置く。
+- 描画は `embedded-graphics` の `DrawTarget` として実装する。
+- API の例：`present(Refresh)`、`draw_image_2bpp(x, y, buf, w, h)`、`full_refresh()`
 - **リフレッシュ回数管理**：部分リフレッシュの回数をカウントし、10回に達したら次の描画を自動的に全画面リフレッシュにする。アプリ側では意識しない。
 - アプリ切替時は必ず全画面リフレッシュを行う。
 
@@ -210,16 +199,17 @@ public:
 
 ### 6.4 Rng
 
-- 乱数源は `esp_random()`。
+- 乱数源は esp-hal の `Rng`（ESP32-S3 のハードウェア乱数）。`alea-core` の `RandomSource` トレイト越しに使う。
 - `uniform(n)`：0〜n−1 を **棄却サンプリング** で返し、剰余による偏りを避ける。
 - `bernoulli()`：0/1（コイン・正逆位置用）
-- ⚠ ESP32 のハードウェア乱数が真性乱数として振る舞う条件（RF 有効時など）は、ESP-IDF ドキュメントで要確認（D-4）。
+- ⚠ ESP32 のハードウェア乱数が真性乱数として振る舞う条件（RF 有効時など）は、ESP-IDF／esp-hal のドキュメントで要確認（D-4）。Alea は無線を使わないため特に注意する。
 
 ### 6.5 Storage / Assets
 
 - 起動時に M5IOE1 経由で TF_EN を有効にし、TF_DET でカードの有無を確認する。
+- Nostos の実績は SDHOST の **1bit**（CLK=G13 / CMD=G12 / DAT0=G11）＋ `sdio` ＋ `embedded-fatfs`。まずこの構成を流用し、4bit 化は読込速度の実測を見て判断する。
 - SD が無い場合、SD 不要のアプリ（dice / coin / stick / amida / yesno）は動作させる。SD 必須のアプリは、ランチャー上でグレーアウト表示にする。
-- JSON は ArduinoJson で読み込み、アプリの `onEnter` 時にロードする。
+- JSON は `serde-json-core` などの no_std パーサで読み込み、アプリの `on_enter` 時にロードする（採用 crate は M3 までに確定）。
 
 ---
 
@@ -228,7 +218,7 @@ public:
 ```
 /alea/
 ├─ config.json                # シェイク閾値など
-├─ fonts/                     # VLW 等の日本語フォント（D-3）
+├─ fonts/                     # 日本語ビットマップフォント（D-3）
 ├─ tarot/
 │  ├─ cards.json              # 78枚のメタデータ
 │  └─ img/00.a2b … 77.a2b     # 画像（§8）
@@ -288,6 +278,8 @@ public:
 
 - 階調点（85/170）とコントラスト係数は CLI 引数で変更できるようにする（実機キャリブレーション用、D-2）。
 - 入力は **フレーム・カード名を合成する前の絵柄のみ** とする。カード名は実機のフォントで描画する。
+  - 原本：`g:\dev\caelum-liber-arcanorum\tools\tarot-gen\final\NN_<name>_<variant>.png`（1024×1536、2:3）。裏面は `src/assets/cards/full/back.webp`。
+- **カード画像・変換結果（.a2b・プレビュー）はリポジトリに含めない**（`.gitignore` 済み）。絵柄は caelum-liber-arcanorum の `LICENSE-ASSETS.md` により © osprey74 All rights reserved。
 
 ---
 
@@ -309,7 +301,7 @@ public:
 ```
 ┌──────────── 480 ────────────┐
 │                             │
-│     カード画像 480×720       │  ← epd_quality
+│     カード画像 480×720       │  ← Gray（4階調）
 │   （逆位置は180°回転）       │
 │                             │
 ├─────────────────────────────┤ y=720
@@ -318,7 +310,7 @@ public:
 ```
 
 - 待機画面にはカード裏面（`img/back.a2b`）と「本体を振ってください」を表示する。
-- B ボタンで「キーワード表示」に切り替える（正位置・逆位置の意味を `epd_text` で表示）。
+- B ボタンで「キーワード表示」に切り替える（正位置・逆位置の意味を `Partial` で表示）。
 
 ---
 
@@ -346,7 +338,7 @@ public:
 
 - 本数は 2〜8 本で、B ボタンで循環切替する。下端の当たり項目は「1, 2, …」の番号とする（ラベル編集は将来対応）。
 - 横線はランダム生成する。隣接する横線が同じ高さで連続しないようにする。
-- 上端の縦線をタップするとその経路を太線で表示する（1回の `epd_text` 描画で完結させ、辿るアニメーションは行わない）。
+- 上端の縦線をタップするとその経路を太線で表示する（1回の `Partial` 描画で完結させ、辿るアニメーションは行わない）。
 
 ### 10.5 omikuji
 
@@ -361,7 +353,7 @@ public:
 
 - 1回のシェイクで硬貨3枚を振る。表=3・裏=2 として合計を出す。
   - 6＝老陰（陰・変爻）、7＝少陽（陽）、8＝少陰（陰）、9＝老陽（陽・変爻）
-- 爻は **下から上へ** 1本ずつ積み、毎回 `epd_fast` で部分更新する（6回で計6回の部分更新）。
+- 爻は **下から上へ** 1本ずつ積み、毎回 `Partial` で部分更新する（6回で計6回の部分更新）。
 - 6本がそろったら全画面リフレッシュして結果を表示する。
   - 本卦の名称と卦画を表示し、変爻には印（例：○／×）を付ける。
   - 変爻がある場合は、陰陽を反転させた之卦の名称と卦画も並べて表示する。
@@ -381,14 +373,14 @@ public:
 
 | ID | 内容 | 決め方 |
 |---|---|---|
-| D-1 | 描画ドライバ：M5GFX か OTP サンプル系か | Nostos の実績を優先し、M1 で確定する |
+| ~~D-1~~ | 描画ドライバ：M5GFX か OTP サンプル系か | **決定（2026-10-02）**：Rust/embassy＋papermono-rs の OTP 駆動（Nostos 流用）。§2・§3 |
 | D-2 | 実機での4階調の濃度、変換パラメータ | 実機表示で Atkinson の階調点・コントラストを調整する |
-| D-3 | 日本語フォント（形式・書体・サイズ・縦書き） | M1 で VLW 変換と SD 読込を検証する |
-| D-4 | `esp_random()` が真性乱数となる条件 | ESP-IDF 公式ドキュメントで確認する |
+| D-3 | 日本語フォント（形式・書体・サイズ・縦書き） | Nostos は BIZ UDゴシック Bold から 16×16 1bpp グリフをビルド時に生成（`gen_jpfont.py`）。Alea は文字数が多いため、SD 読込のビットマップフォント形式を M1 で検討する |
+| D-4 | ハードウェア乱数が真性乱数となる条件（無線を使わない場合） | ESP-IDF／esp-hal 公式ドキュメントで確認する |
 | D-5 | 前回結果の保持や「今日の一枚」機能の有無 | 現状は保持しない。将来 RTC と組み合わせて検討する |
 | D-6 | 易の擲銭法の点数配分 | 既存実装と照合し、ユニットテストで検証する |
-| D-7 | 4階調画像を `epd_quality` 以外のモードで表示できるか | M2 で実機検証する |
-| D-8 | リポジトリ名・公開範囲・ライセンス（カード画像の扱いを含む） | 公開前に決定する。M5Stack 非公式である旨を README に明記する |
+| D-7 | 4階調画像の表示時間と、部分更新との併用可否 | M1/M3 で実機計測する |
+| D-8 | リポジトリ名・公開範囲・ライセンス（カード画像の扱いを含む） | **一部決定（2026-10-02）**：`paper-alea`・公開・コードは MIT。カード画像はリポジトリに含めない。M5Stack 非公式である旨を README に明記済み |
 
 ---
 
@@ -396,7 +388,7 @@ public:
 
 | M | 内容 | 完了条件 |
 |---|---|---|
-| M1 | 土台：HAL 初期化、Display（回数管理含む）、Input、Storage、Launcher（ダミーアプリ2本） | ランチャーから切替・A で復帰でき、11回目の部分更新が全画面になる |
+| M1 | 土台：HAL 初期化（Nostos 流用）、Display（回数管理含む）、Input、Storage、Launcher（ダミーアプリ2本） | ランチャーから切替・A で復帰でき、11回目の部分更新が全画面になる |
 | M2 | Shake・Rng ＋ `yesno` / `coin` / `dice` | 振って結果が出る。誤検出が許容範囲。1D100 の 100 判定が正しい |
 | M3 | `convert_cards.py` ＋ `tarot` | 78枚＋裏面が表示でき、正逆が 50% 前後に分布する |
 | M4 | `stick` / `amida` / `omikuji` | 各仕様どおり |
@@ -405,7 +397,7 @@ public:
 
 ### テスト方針
 
-- 乱数・抽選ロジックは `test/` のネイティブ環境（PlatformIO `native`）で、10万回試行の分布テストを行う。
+- 乱数・抽選ロジックは `crates/alea-core` のホストテスト（`cargo test`）で、10万回試行の分布テストを行う。
 - 描画は実機で目視確認する。`preview_a2b.py` で PNG に戻して差分を確認できるようにする。
 
 ---
@@ -414,7 +406,18 @@ public:
 
 - PaperMono 公式ドキュメント：https://docs.m5stack.com/en/core/PaperMono
 - PaperMono OTP サンプル：https://github.com/m5stack/M5PaperMono-OTP-Demo
+- papermono-rs（BSP）：https://github.com/canardleteer/papermono-rs
+- Nostos（PaperMono 実機知見の出典）：`g:\dev\Nostos`（`firmware/nostos-fw/README.md`）
 - PaperMono 回路図：https://m5stack-doc.oss-cn-shenzhen.aliyuncs.com/1267/PaperMono_SCH_V0.6.2_20260522.pdf
 - 易経（概要）：https://www.weblio.jp/content/%E5%91%A8%E6%98%93
 - ルーン文字（概要）：https://www.weblio.jp/content/%E3%83%AB%E3%83%BC%E3%83%B3%E6%96%87%E5%AD%97
 - 三枚硬貨法 実装例：https://pypi.org/project/iching-divination/
+
+---
+
+## 14. 変更履歴
+
+| 日付 | 版 | 内容 |
+|---|---|---|
+| 2026-10-02 | v0.1 | 初版 |
+| 2026-10-02 | v0.2 | 開発スタックを PlatformIO/Arduino から Rust/embassy（Nostos・papermono-rs 流用）へ変更。リフレッシュ方式を OTP 駆動（Mono / Partial / Gray）に改め、コールドブートの注意を追記。カード画像をリポジトリ外とする方針を明記（D-1 決定、D-8 一部決定） |

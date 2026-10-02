@@ -1,0 +1,51 @@
+# Rust
+/target/
+**/target/
+**/*.rs.bk
+*.pdb
+
+# Firmware artifacts
+*.bin
+*.elf
+*.hex
+*.map
+*.uf2
+
+# ── カード画像（コミット禁止）──
+# タロットの絵柄は caelum-liber-arcanorum の素材（© osprey74 All rights reserved）。
+# 変換結果（.a2b・プレビュー PNG・一覧画像）もリポジトリに含めない。
+*.a2b
+/sd/alea/tarot/img/*
+!/sd/alea/tarot/img/.gitkeep
+/tools/out/
+# 手元の作業用（参照画像・実機写真など）
+/local/
+
+# 実機ログ
+/log/
+
+# Python (補助ツール)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Claude Code（settings.json は共有・local は個人用）
+.claude/settings.local.json
+
+# Editor / IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Secrets
+.env
+secrets.*
