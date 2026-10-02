@@ -39,8 +39,10 @@ cargo +esp build --release
 espflash flash --port COM8 --monitor target\xtensa-esp32s3-none-elf\release\alea-fw
 ```
 
-- シリアル観測は `espflash flash --monitor` で行う。素の SerialPort で COM8 を開くと USB-Serial-JTAG が
-  download モードに落ちる（Nostos `firmware/nostos-fw/experiments/README.md`）。
+- シリアル観測は `espflash flash --monitor` で行う（Claude Code から実行するときは `--non-interactive` を付け、
+  `timeout` で時間を区切る）。`espflash monitor` 単体や素の SerialPort で COM8 を開くと USB-Serial-JTAG が
+  download モードに落ちて無音になる（Nostos `firmware/nostos-fw/experiments/README.md`。2026-10-02 に Alea でも再現）。
+  復帰は `espflash reset --port COM8`。
 - リンカの「LOAD segment with RWX permissions」警告はツールチェーン由来（Nostos でも同じ）。
 
 ## 厳守事項（パネル保護・互換性）
