@@ -240,3 +240,29 @@ impl Display {
 - M5PM1 / M5IOE1 電源管理：https://docs.m5stack.com/en/arduino/papermono/m5pm1_m5ioe1
 - PaperMono OTP サンプル：https://github.com/m5stack/M5PaperMono-OTP-Demo
 - 工場出荷ファーム（初期化手順の参考）：https://github.com/m5stack/M5PaperMono-UserDemo
+
+---
+
+## 9. 次回の作業（2026-10-03 時点・M2 の続き）
+
+**状況**：シェイク検出・真性乱数・yesno / coin / dice は実機で動作確認済み（英数字のみの仮画面）。
+ランチャーは Claude Design の B 案（書物調・4 階調画像）で確定。アプリ画面のデザインも確定し、
+Developer ページの「Design preview」で画像として実機確認済み。
+
+**デザイン**：Claude Design「Alea ランチャー」 https://claude.ai/artifact/2oF1T17tXXRsjEz3YymGcm
+（1 段目＝ランチャー案、2 段目＝アプリ画面案）。実機で決めた文字の大きさは `tools/render_app_mockups.py` が正。
+
+| 要素 | 大きさ | 備考 |
+|---|---|---|
+| チップの文字（1D3 など） | 26 | 輪郭を足して太く（`CHIP_STROKE = 2`） |
+| 最下部の案内「A　戻る」「振って決める」 | 20 | 太くしない |
+| 見出しのローマ数字・「合計」・「表」「裏」 | 24 | 太くしない |
+| ランチャーのタイルのローマ数字 | 15 | 輪郭を足して太く |
+
+**次にやること**
+1. キャンバス（2 段目）の文字の大きさを上の表に揃える。
+2. ダイス・コイン・是か非かを確定デザインで作り直す。
+   - 枠・見出し・案内・「合計」「表」「裏」「是」「非」など変わらない部分は PC で画像化（`render_app_mockups.py` を発展）。
+   - 結果の数字と YES / NO / HEADS / TAILS は、Cormorant Garamond Bold をビットマップ書体に変換して実機で描く（オールドスタイル数字のまま）。
+   - 結果の更新はモノクロの部分更新（灰色は使わない）。待機画面は結果の欄を「?」にする。
+3. 確認後、`debug_preview` と仮画面のコードを整理する。
