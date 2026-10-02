@@ -58,15 +58,17 @@ def s(v: float) -> int:
     return round(v * S)
 
 
-def text_center(d: ImageDraw.ImageDraw, cx: float, cy: float, text: str, font, fill, spacing_em=0.0):
-    """文字列を (cx, cy) を中心に描く。spacing_em は字間（CSS の letter-spacing・em）。"""
+def text_center(d: ImageDraw.ImageDraw, cx: float, cy: float, text: str, font, fill, spacing_em=0.0,
+                stroke=0):
+    """文字列を (cx, cy) を中心に描く。spacing_em は字間（CSS の letter-spacing・em）。
+    stroke は輪郭に足す太さ（描画倍率の px）。小さい文字を白黒で潰れないようにする。"""
     size = font.size
     gap = spacing_em * size
     widths = [font.getlength(ch) for ch in text]
     total = sum(widths) + gap * (len(text) - 1)
     x = s(cx) - total / 2
     for ch, w in zip(text, widths):
-        d.text((x, s(cy)), ch, font=font, fill=fill, anchor="lm")
+        d.text((x, s(cy)), ch, font=font, fill=fill, anchor="lm", stroke_width=stroke, stroke_fill=fill)
         x += w + gap
 
 
@@ -178,7 +180,8 @@ def render():
         d.rectangle([s(tx), s(ty), s(tx + tw) - 1, s(ty + th) - 1], outline=BLACK, width=s(1))
         cx = tx + tw / 2
         cy = ty + th / 2
-        text_center(d, cx, cy - 48, numeral, font_serif(15), DARK)
+        # ローマ数字は小さく暗灰なので、輪郭を足して太くする（2026-10-03 確認）。
+        text_center(d, cx, cy - 48, numeral, font_serif(15), DARK, stroke=2)
         icon(d, key, cx, cy + 2)
         text_center(d, cx, cy + 52, name, font_mincho(18), BLACK)
 

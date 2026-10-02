@@ -7,6 +7,7 @@
 use esp_println::println;
 
 use crate::apps::coin::CoinApp;
+use crate::apps::debug_preview::DesignPreviewApp;
 use crate::apps::debug_refresh::RefreshTestApp;
 use crate::apps::debug_sd::SdCheckApp;
 use crate::apps::dice::DiceApp;
@@ -22,6 +23,7 @@ enum AnyApp {
     YesNo(YesNoApp),
     RefreshTest(RefreshTestApp),
     SdCheck(SdCheckApp),
+    DesignPreview(DesignPreviewApp),
 }
 
 /// `AnyApp` の各アプリへ同じ呼び出しを振り分ける。
@@ -33,6 +35,7 @@ macro_rules! dispatch {
             AnyApp::YesNo($app) => $body,
             AnyApp::RefreshTest($app) => $body,
             AnyApp::SdCheck($app) => $body,
+            AnyApp::DesignPreview($app) => $body,
         }
     };
 }
@@ -68,7 +71,7 @@ impl AnyApp {
 }
 
 /// 登録アプリ数。
-const APP_COUNT: usize = 5;
+const APP_COUNT: usize = 6;
 
 /// ランチャーのタイル I〜IX に置くアプリの ID（DESIGN.md §1 の収録順）。未登録の ID は未実装として薄く表示する。
 const MAIN_TILE_IDS: [&str; 9] = [
@@ -92,6 +95,7 @@ impl AppManager {
             AnyApp::YesNo(YesNoApp::new()),
             AnyApp::RefreshTest(RefreshTestApp::new()),
             AnyApp::SdCheck(SdCheckApp::new()),
+            AnyApp::DesignPreview(DesignPreviewApp::new()),
         ];
         let slot = |k: usize| Slot {
             app: k,
