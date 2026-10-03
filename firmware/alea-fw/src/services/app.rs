@@ -7,6 +7,7 @@
 //!   新しい画面を描いてから全面更新する順にした。
 
 use crate::board::ioe::SysI2c;
+use crate::board::power;
 use crate::services::display::{Canvas, Display, Refresh};
 use crate::services::input::{Input, InputEvent};
 use crate::services::rng::Rng;
@@ -32,6 +33,8 @@ pub enum Event {
     ButtonA,
     /// ボタン B。
     ButtonB,
+    /// 電源ボタン（AppManager が横取りして電源オフの手順に入る。アプリには届かない）。
+    PowerButton,
 }
 
 impl From<InputEvent> for Event {
@@ -86,8 +89,10 @@ pub struct Ctx {
     input: Input,
     shake: Shake,
     rng: Rng,
-    /// メインループの周期を数える（入力は 2 周期に 1 回調べる）。
+    /// メインループの周期を数える（入力は 2 周期に 1 回、電源ボタンは 10 周期に 1 回調べる）。
     tick: u32,
+    /// 振りの合図の LED（緑）を点けているか。
+    shake_led: bool,
 }
 
 impl Ctx {
@@ -108,6 +113,7 @@ impl Ctx {
             shake,
             rng,
             tick: 0,
+            shake_led: false,
         }
     }
 
@@ -138,10 +144,34 @@ impl Ctx {
         self.resync();
     }
 
-    /// 描画中に起きた操作・揺れを捨てる。
+    /// 描画中に起きた操作・揺れを捨てる。振りの合図の LED も消す。
     fn resync(&mut self) {
         self.input.resync();
         self.shake.resync();
+        self.set_shake_led(false);
+    }
+
+    /// 振りの合図の LED（緑）。振り始めで点け、結果を描き終えたら消す（2026-10-03 決定）。
+    pub(crate) fn set_shake_led(&mut self, on: bool) {
+        if self.shake_led != on {
+            self.shake_led = on;
+            power::set_led(&mut self.i2c, on, false);
+        }
+    }
+
+    /// USB から給電されているか（AppManager の電源オフの手順で使う）。
+    pub(crate) fn usb_present(&mut self) -> bool {
+        power::usb_present(&mut self.i2c)
+    }
+
+    /// 前回から電源ボタンが押されたか（AppManager の電源オフの手順で使う）。
+    pub(crate) fn power_button(&mut self) -> bool {
+        power::button_pressed(&mut self.i2c)
+    }
+
+    /// 電源を切る（USB 給電中は切れずに起動し直す）。
+    pub(crate) fn shutdown(&mut self) {
+        power::shutdown(&mut self.i2c);
     }
 
     /// 乱数源。
@@ -160,9 +190,15 @@ impl Ctx {
         self.tick = self.tick.wrapping_add(1);
         if let Some(e) = self.shake.poll(&mut self.i2c) {
             return Some(match e {
-                ShakeEvent::Start => Event::ShakeStart,
+                ShakeEvent::Start => {
+                    self.set_shake_led(true);
+                    Event::ShakeStart
+                }
                 ShakeEvent::End => Event::ShakeEnd,
             });
+        }
+        if self.tick % 10 == 0 && power::button_pressed(&mut self.i2c) {
+            return Some(Event::PowerButton);
         }
         if self.tick % 2 == 0 {
             return self.input.poll(&mut self.i2c).map(Event::from);

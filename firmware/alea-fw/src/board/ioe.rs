@@ -7,7 +7,7 @@
 //! - M5PM1 の電源保持・電源ボタン誤操作対策
 //! - LoRa 電源（PM1 G2）の遮断（R-5）
 //!
-//! LoRa 無線・RTC RAM の UI 設定・LED・フロントライトは扱わない。
+//! LoRa 無線・RTC RAM の UI 設定・フロントライトは扱わない。LED・電源ボタン・シャットダウンは [`super::power`]。
 
 use core::sync::atomic::{AtomicU8, Ordering};
 
@@ -328,6 +328,16 @@ fn configure_power_button(i2c: &mut SysI2c) -> bool {
         "[Board] pm1 btn_cfg1=0x{:02x} btn_cfg2=0x{:02x} (double-off dis, long=4s) ok={}",
         cfg1_v, cfg2_v, ok as u8
     );
+    // PM1 のファームの版・電源の状態・起床要因。BTN_STATUS（0x48）は読むと押下の記録が消えるので、
+    // 電源を入れたときの押下をここで捨てる（そのまま電源オフと取り違えないため）。
+    let rd = |pm1: &mut M5pm1<_>, r: u8| pm1.read_at(r).map_or(-1, i32::from);
+    println!(
+        "[Board] pm1 sw_rev=0x{:02x} pwr_src=0x{:02x} wake_src=0x{:02x} btn_status=0x{:02x}",
+        rd(&mut pm1, 0x03),
+        rd(&mut pm1, 0x04),
+        rd(&mut pm1, 0x05),
+        rd(&mut pm1, 0x48)
+    );
     ok
 }
 
@@ -401,6 +411,8 @@ pub async fn bring_up(i2c: &mut SysI2c) -> BringUp {
         let rst = set_output_verified(i2c, ioe1::TOUCH_RST, true);
         Timer::after(Duration::from_millis(100)).await;
         println!("[Board] touch power vdd={} rst={}", vdd as u8, rst as u8);
+        super::power::leds_off(i2c);
+        println!("[Board] leds off");
     }
 
     BringUp {

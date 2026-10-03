@@ -7,6 +7,7 @@
 #![no_std]
 
 pub mod amida;
+pub mod config;
 pub mod dice;
 pub mod iching;
 pub mod omikuji;

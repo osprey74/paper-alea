@@ -197,7 +197,11 @@ pub trait App {
 - BMI270 は papermono-rs の手順で初期化し、測定範囲を **±8g** にする（±2g では振ると飽和する）。判定ロジックは `alea-core::shake`（ホストでテスト）。
 - 実機（2026-10-03）：振り 12 回で揺れ量の最大値は 1.6〜8.0g。誤検出・取りこぼしの報告なし。
 - `ShakeStart` 発生時に画面表示などは行わない（アニメーションなし方針）。
-- パラメータは `sd/alea/config.json` で上書きできるようにする（実機でのチューニング用）。
+- パラメータは `sd/alea/config.json` で上書きできる（実機でのチューニング用・M6 で実装）。起動時に読み、無い・読めない・範囲外のキーは既定値のまま（`alea-core::config`）。
+  ```json
+  { "shake": { "threshold_mg": 800, "start_peaks": 2, "start_window_ms": 600, "end_quiet_ms": 300 } }
+  ```
+  範囲：threshold_mg 200〜4000、start_peaks 1〜8、start_window_ms・end_quiet_ms 100〜3000。
 
 ### 6.4 Rng
 
@@ -220,11 +224,22 @@ pub trait App {
 
 ---
 
+### 6.6 Power / LED（M6）
+
+- 出典：M5PM1 データシート v1.9（m5stack/M5PM1 `docs/M5PM1_Datasheet_EN.pdf`）、M5Unified、M5PaperMono-UserDemo（2026-10-03 調査）。C153 の PM1 は `sw_rev=0x54`。
+- **電源ボタン**：単クリックのリセットと 2 回押しの電源オフは起動時に無効化している（`BTN_CFG_1` bit0・`BTN_CFG_2` bit0）。押下は `BTN_STATUS`（0x48）bit7（読むと消える）を 100 ms ごとに読んで知る（割り込みのピンは使わない。使うと LED が点滅する）。起動時に一度読んで、電源を入れたときの押下を捨てる。
+  - 押されたら AppManager が横取りし、終了画面（書物調の表紙・4 階調・`tools/render_sleep.py`）を描いてから、`HOLD_CFG` の LDO 保持を外して `SYS_CMD` でシャットダウンする（UserDemo と同じ順）。表紙は電源オフ後も画面に残る。
+  - **USB 給電中**（`PWR_SRC` bit0/1）はシャットダウンしても起動し直すため、待機用の表紙を出して待つ。もう一度押すとランチャーに戻り、USB が抜かれたら電源オフの表紙に描き直して切る。
+  - 電源オンは電源ボタンを 1 回押す（PM1 の機能）。
+  - 4 秒の長押しは PM1 がダウンロードモードに入れる（ファームから止めない・`DL_LOCK` は使わない）。
+- **LED**：緑＝M5IOE1 PYG8・青＝PYG9（HIGH で点灯）、赤＝M5PM1 の `LED_EN`（`PWR_CFG` bit4）。起動時に 3 色とも消す（Nostos が点けた青が残っていた）。振り始めを検知したら緑を点け、結果を描き終えたら消す（2026-10-03 決定）。
+- 2026-10-03 実機（C153）で、振りの合図・USB 接続中の待機と復帰・USB を抜いたときの電源オフ・電源オンを確認。
+
 ## 7. microSD 構成
 
 ```
 /alea/
-├─ config.json                # シェイク閾値など
+├─ config.json                # シェイク検出の調整（任意・§6.3）
 └─ tarot/
 │  ├─ img/00.a2b … 77.a2b・back.a2b  # カード画像 360×540（§8）
 │  ├─ cap/00.a1b … 77.a1b     # 結果画面の名前の帯（§9 Tarot）
@@ -455,3 +470,4 @@ pub trait App {
 | 2026-10-03 | v0.5 | M3：タロットのデザイン確定（B 案・額装）。カード画像を 360×540 に変更（§8）、`.a1b` を追加、§7 の SD 構成（`cap/`・`word/`、`cards.json` は使わない）、§9 Tarot を更新 |
 | 2026-10-03 | v0.6 | M4：stick / amida / omikuji を実装（キャンバス 4 段目）。amida の本数を 2〜6 本に変更、omikuji の文をファームに組み込み（§7 から `omikuji.json` を削除）、§10.3〜§10.5 を更新 |
 | 2026-10-03 | v0.7 | M5：iching / rune を実装（キャンバス 5 段目）。D-3・D-6 決定。易・ルーンの文と字形をファームに組み込み（§7 から JSON と fonts を削除）、§10.7・§10.8 を更新 |
+| 2026-10-03 | v0.8 | M6：config.json（§6.3）、電源ボタン・終了画面・USB 接続中の待機・LED（§6.6）を実装。README を現状に更新 |

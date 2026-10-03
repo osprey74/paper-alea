@@ -22,7 +22,7 @@ use esp_println::println;
 use static_cell::ConstStaticCell;
 
 use app_manager::AppManager;
-use services::app::{Ctx, POLL_MS};
+use services::app::{Ctx, Event, POLL_MS};
 use services::display::{Display, PLANE_BYTES};
 use services::input::Input;
 use services::rng::Rng;
@@ -79,7 +79,7 @@ async fn main(_spawner: Spawner) -> ! {
     .await;
 
     // microSD（SDHOST 1bit: CLK=13 / CMD=12 / DAT0=11）。無くても続行する。
-    let storage = Storage::begin(
+    let mut storage = Storage::begin(
         &mut i2c,
         peripherals.SDHOST,
         peripherals.GPIO13,
@@ -89,7 +89,7 @@ async fn main(_spawner: Spawner) -> ! {
     .await;
 
     // BMI270（シェイク検出）と真性乱数源（RNG ＋ ADC1）。
-    let shake = Shake::begin(&mut i2c).await;
+    let shake = Shake::begin(&mut i2c, &mut storage).await;
     let rng = Rng::new(peripherals.RNG, peripherals.ADC1);
 
     println!(
@@ -113,7 +113,13 @@ async fn main(_spawner: Spawner) -> ! {
         let Some(event) = ctx.poll() else {
             continue;
         };
-        if last_draw.elapsed() < Duration::from_millis(MIN_REDRAW_MS) {
+        // 描画直後の操作は捨てる。電源ボタンは捨てない（押下の記録は読んだ時点で消えるため）。
+        if event != Event::PowerButton
+            && last_draw.elapsed() < Duration::from_millis(MIN_REDRAW_MS)
+        {
+            if event == Event::ShakeEnd {
+                ctx.set_shake_led(false);
+            }
             continue;
         }
         manager.handle(&mut ctx, event).await;

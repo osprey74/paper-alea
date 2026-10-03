@@ -5,4 +5,5 @@
 pub mod imu;
 pub mod ioe;
 pub mod panel;
+pub mod power;
 pub mod sd;

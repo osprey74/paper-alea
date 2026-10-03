@@ -3,7 +3,9 @@
 //! - アプリは [`AnyApp`] に静的に登録する（`no_std`・ヒープ無しのため `dyn` を使わない）。
 //! - ボタン A は常にここで横取りする。ランチャー以外なら戻り、ランチャー上では無視する。
 //! - 切替手順：`on_exit` → `on_enter`（描画のみ）→ 全面更新 → `on_ready`。
+//! - 電源ボタンも常にここで横取りし、終了画面を描いて電源を切る（USB 給電中は終了画面で待つ）。
 
+use embassy_time::Timer;
 use esp_println::println;
 
 use crate::apps::amida::AmidaApp;
@@ -20,6 +22,7 @@ use crate::apps::tarot::TarotApp;
 use crate::apps::yesno::YesNoApp;
 use crate::services::app::{Action, App, Ctx, Event};
 use crate::services::display::Refresh;
+use crate::ui::layout::SCREEN_W;
 
 /// 登録アプリ（ランチャーを除く）。新しいアプリはここに足す。
 enum AnyApp {
@@ -85,6 +88,15 @@ impl AnyApp {
     }
 }
 
+/// 終了画面（`tools/render_sleep.py` が生成・480×800・2bit/画素）。電池のとき。
+static SLEEP_OFF: &[u8] = include_bytes!("../assets/sleep_off.2bpp");
+/// 終了画面。USB 給電中の待機。
+static SLEEP_USB: &[u8] = include_bytes!("../assets/sleep_usb.2bpp");
+/// USB 給電中の待機で、電源ボタンと USB を調べる周期 [ms]。
+const STANDBY_POLL_MS: u64 = 100;
+/// シャットダウンを指示してから、切れなかったと判断するまで [ms]。
+const SHUTDOWN_WAIT_MS: u64 = 2000;
+
 /// 登録アプリ数。
 const APP_COUNT: usize = 11;
 
@@ -143,8 +155,12 @@ impl AppManager {
         self.enter(ctx, None).await;
     }
 
-    /// イベントを現在のアプリに配送する。ボタン A は横取りする。
+    /// イベントを現在のアプリに配送する。ボタン A と電源ボタンは横取りする。
     pub async fn handle(&mut self, ctx: &mut Ctx, e: Event) {
+        if e == Event::PowerButton {
+            self.power_off(ctx).await;
+            return;
+        }
         if e == Event::ButtonA {
             if self.current.is_some() {
                 self.switch(ctx, None).await;
@@ -155,9 +171,52 @@ impl AppManager {
             None => self.launcher.on_event(ctx, e).await,
             Some(i) => self.apps[i].on_event(ctx, e).await,
         };
+        if e == Event::ShakeEnd {
+            // 振りの合図の LED は、結果を描き終えたら（描かないアプリでも）消す。
+            ctx.set_shake_led(false);
+        }
         if let Action::Open(i) = action {
             if i < APP_COUNT {
                 self.switch(ctx, Some(i)).await;
+            }
+        }
+    }
+
+    /// 電源ボタンが押された：終了画面（書物調の表紙・4 階調）を描いて電源を切る。
+    /// USB 給電中は切っても起動し直すため、待機用の終了画面を出して待ち、
+    /// もう一度押されたらランチャーに戻る。待機中に USB が抜かれたら電源オフの画面にして切る。
+    async fn power_off(&mut self, ctx: &mut Ctx) {
+        println!("[AppMgr] power button");
+        match self.current {
+            None => self.launcher.on_exit(ctx).await,
+            Some(i) => self.apps[i].on_exit(ctx).await,
+        }
+        loop {
+            let usb = ctx.usb_present();
+            ctx.clear();
+            let image = if usb { SLEEP_USB } else { SLEEP_OFF };
+            ctx.canvas().blit_2bpp(0, 0, SCREEN_W, 800, image);
+            ctx.present(Refresh::Gray).await;
+            // 描画中の押下は捨てる。
+            let _ = ctx.power_button();
+            if !usb {
+                println!("[AppMgr] shutdown");
+                ctx.shutdown();
+                // 切れなかった（直前に USB が挿された等）ときは、待機の画面からやり直す。
+                Timer::after_millis(SHUTDOWN_WAIT_MS).await;
+                continue;
+            }
+            println!("[AppMgr] usb present, standby");
+            loop {
+                Timer::after_millis(STANDBY_POLL_MS).await;
+                if ctx.power_button() {
+                    println!("[AppMgr] resume");
+                    self.enter(ctx, None).await;
+                    return;
+                }
+                if !ctx.usb_present() {
+                    break;
+                }
             }
         }
     }

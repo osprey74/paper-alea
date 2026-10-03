@@ -1,0 +1,8 @@
+{
+  "shake": {
+    "threshold_mg": 800,
+    "start_peaks": 2,
+    "start_window_ms": 600,
+    "end_quiet_ms": 300
+  }
+}
