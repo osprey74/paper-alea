@@ -318,3 +318,9 @@ Developer ページの「Design preview」で画像として実機確認済み�
 - **全アプリの通し操作を実機で確認（総司さん・2026-10-03）**：M6 の完了条件を満たした。
 - 省電力：自動電源オフのみ（操作が無いまま 3 分で終了画面を描いて切る・USB 給電中は切らない・`config.json` の `auto_off_min`）。
   振って起動は採らない（電源オフ中も加速度センサーに給電が要るため）。5 分で切れることを実機で確認後、既定を 3 分に変更。
+
+## 14. v1.0.0 リリース（2026-10-03）
+
+- M1〜M6 完了。総司さんの判断で正式リリースとする。バージョン 1.0.0（`firmware/alea-fw/Cargo.toml`・`crates/alea-core/Cargo.toml`）。
+- 配布物：`alea-fw-v1.0.0-merged.bin`（`espflash save-image --chip esp32s3 --flash-size 16mb --merge --skip-padding` で作成・0x0 に書き込む）。
+- 未確認：PaperMono-Lite（C153-Lite）の実機（在庫切れ・入荷後に確認予定）。

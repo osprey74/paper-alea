@@ -1,6 +1,6 @@
 [package]
 name = "alea-core"
-version = "0.1.0"
+version = "1.0.0"
 description = "Alea のハード非依存ロジック（乱数・抽選・各ミニアプリの判定）"
 edition.workspace = true
 rust-version.workspace = true

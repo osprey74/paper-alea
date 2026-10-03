@@ -4,7 +4,7 @@ M5Stack PaperMono 向けの「偶然」ミニアプリ集です。本体を振�
 
 A pocket collection of "chance" apps for the M5Stack PaperMono. Shake the device to draw a tarot card, cast the I Ching, roll dice, flip a coin and more.
 
-> ⚠️ 開発中です（9 本のアプリはすべて動作します。仕上げの段階）。 / Work in progress (all nine apps work; finishing touches).
+> v1.0.0 — 9 本のアプリがすべて動作します（M5Stack PaperMono C153 で確認）。 / v1.0.0 — all nine apps work (tested on PaperMono C153).
 >
 > 本プロジェクトは M5Stack 社の公式製品ではありません。 / This is not an official M5Stack product.
 
@@ -33,6 +33,18 @@ A pocket collection of "chance" apps for the M5Stack PaperMono. Shake the device
 
 - M5Stack PaperMono（C153）
 - M5Stack PaperMono-Lite（C153-Lite）でも動く設計としています（LoRa・NFC は使いません）
+
+## インストール（ビルド不要） / Install without building
+
+[Releases](https://github.com/osprey74/paper-alea/releases) から `alea-fw-vX.Y.Z-merged.bin` をダウンロードし、[espflash](https://github.com/esp-rs/espflash) で先頭（0x0）に書き込みます。
+
+Download `alea-fw-vX.Y.Z-merged.bin` from Releases and write it at offset 0x0 with espflash.
+
+```powershell
+espflash write-bin 0x0 alea-fw-v1.0.0-merged.bin
+```
+
+タロットを使う場合は、別途カード画像を microSD に用意する必要があります（下記・カード画像はこのリポジトリに含まれていません）。
 
 ## ビルド / Build
 
