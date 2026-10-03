@@ -26,7 +26,7 @@ A pocket collection of "chance" apps for the M5Stack PaperMono. Shake the device
 
 - ランチャーでアプリのタイルをタップして開きます。ボタン A でいつでもランチャーに戻ります。
 - 本体を振ると結果が出ます（あみだくじは上の番号をタップ）。ボタン B はアプリごとの切替（ダイスの種類はチップをタップ、棒倒しの方式、あみだくじの本数、ルーンの逆位置、タロットのキーワード表示）です。
-- 電源ボタンを 1 回押すと表紙を表示して電源が切れ、もう一度押すと起動します（USB 接続中は切れずに待機し、もう一度押すと戻ります）。振っている間は緑の LED が点きます。
+- 電源ボタンを 1 回押すと表紙を表示して電源が切れ、もう一度押すと起動します（USB 接続中は切れずに待機し、もう一度押すと戻ります）。振っている間は緑の LED が点きます。操作が無いまま 3 分たつと自動で電源が切れます（USB 接続中を除く）。
 - Open an app by tapping its tile. Button A returns to the launcher. Shake the device to get a result. Button B switches app-specific options. Press the power button once to power off (shows a cover screen) and again to power on.
 
 ## 対応機種 / Hardware
@@ -56,7 +56,7 @@ espflash flash --monitor target/xtensa-esp32s3-none-elf/release/alea-fw
 
 microSD に入れるデータは [sd/alea/README.txt](sd/alea/README.txt) を参照してください。microSD はタロットだけが使います（カード画像は `tools/convert_cards.py`・`tools/render_tarot.py` で生成します）。ほかのアプリは microSD が無くても動きます。
 
-`sd/alea/config.json` でシェイク検出の感度を調整できます（DESIGN.md §6.3）。
+`sd/alea/config.json` でシェイク検出の感度と、自動電源オフまでの時間を調整できます（DESIGN.md §6.3・§6.6）。
 
 ## ライセンス / License
 

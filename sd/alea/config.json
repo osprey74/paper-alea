@@ -4,5 +4,8 @@
     "start_peaks": 2,
     "start_window_ms": 600,
     "end_quiet_ms": 300
+  },
+  "power": {
+    "auto_off_min": 3
   }
 }

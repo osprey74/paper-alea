@@ -1,11 +1,12 @@
 //! `config.json`（microSD の `/alea/config.json`・DESIGN.md §6.3・§7）。
 //!
-//! 実機のチューニング用にシェイク検出のパラメータを上書きする。JSON の汎用パーサは持たず、
+//! 実機のチューニング用にシェイク検出のパラメータと、自動電源オフまでの時間を上書きする。JSON の汎用パーサは持たず、
 //! キー名を探してその直後の整数だけを読む（キーは全体で一意な名前にする）。
 //! 無いキー・数でない値・範囲外の値は無視して既定値のままにする。
 //!
 //! ```json
-//! { "shake": { "threshold_mg": 800, "start_peaks": 2, "start_window_ms": 600, "end_quiet_ms": 300 } }
+//! { "shake": { "threshold_mg": 800, "start_peaks": 2, "start_window_ms": 600, "end_quiet_ms": 300 },
+//!   "power": { "auto_off_min": 3 } }
 //! ```
 
 use crate::shake::ShakeParams;
@@ -45,6 +46,18 @@ pub const START_PEAKS: (i64, i64) = (1, 8);
 pub const START_WINDOW_MS: (i64, i64) = (100, 3000);
 /// 許す範囲 [ms]。
 pub const END_QUIET_MS: (i64, i64) = (100, 3000);
+
+/// 自動電源オフまでの時間の既定値 [分]（DESIGN.md §6.6・2026-10-03 決定）。
+pub const AUTO_OFF_MIN_DEFAULT: u32 = 3;
+/// 許す範囲 [分]（0 = 自動電源オフしない）。
+pub const AUTO_OFF_MIN: (i64, i64) = (0, 120);
+
+/// `config.json` の中身から自動電源オフまでの時間 [分] を読む（0 = しない）。無い・範囲外なら既定値。
+pub fn auto_off_min(text: &str) -> u32 {
+    int_value(text, "auto_off_min")
+        .filter(|v| (AUTO_OFF_MIN.0..=AUTO_OFF_MIN.1).contains(v))
+        .map_or(AUTO_OFF_MIN_DEFAULT, |v| v as u32)
+}
 
 /// `config.json` の中身からシェイクのパラメータを作る。戻り値の 2 つ目は上書きしたキーの数。
 pub fn shake_params(text: &str) -> (ShakeParams, u8) {
@@ -109,6 +122,14 @@ mod tests {
         assert_eq!(n, 1);
         assert_eq!(p.threshold_mg, 600);
         assert_eq!(p.start_peaks, ShakeParams::DEFAULT.start_peaks);
+    }
+
+    #[test]
+    fn auto_off_minutes() {
+        assert_eq!(auto_off_min(""), AUTO_OFF_MIN_DEFAULT);
+        assert_eq!(auto_off_min(r#"{"power":{"auto_off_min": 10}}"#), 10);
+        assert_eq!(auto_off_min(r#"{"power":{"auto_off_min": 0}}"#), 0);
+        assert_eq!(auto_off_min(r#"{"power":{"auto_off_min": 999}}"#), AUTO_OFF_MIN_DEFAULT);
     }
 
     #[test]

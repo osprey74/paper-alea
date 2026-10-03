@@ -22,6 +22,7 @@ use esp_println::println;
 use static_cell::ConstStaticCell;
 
 use app_manager::AppManager;
+use alea_core::config;
 use services::app::{Ctx, Event, POLL_MS};
 use services::display::{Display, PLANE_BYTES};
 use services::input::Input;
@@ -34,6 +35,11 @@ esp_bootloader_esp_idf::esp_app_desc!();
 
 /// 描画の最小間隔 [ms]。直前の描画からこの時間内の操作は捨てる（連打で部分更新を連続させない・R-2）。
 const MIN_REDRAW_MS: u64 = 500;
+
+/// 設定ファイル（microSD・任意）。
+const CONFIG_PATH: &str = "alea/config.json";
+/// 設定ファイルの最大の大きさ [byte]。
+const CONFIG_MAX: usize = 1024;
 
 // e-ink 用 1bpp プレーン（480×800 / 8 = 48,000 バイト ×2）。静的確保。
 static BW_PLANE: ConstStaticCell<[u8; PLANE_BYTES]> = ConstStaticCell::new([0; PLANE_BYTES]);
@@ -89,7 +95,27 @@ async fn main(_spawner: Spawner) -> ! {
     .await;
 
     // BMI270（シェイク検出）と真性乱数源（RNG ＋ ADC1）。
-    let shake = Shake::begin(&mut i2c, &mut storage).await;
+    // config.json（任意）：シェイク検出の調整と自動電源オフまでの時間（DESIGN.md §6.3・§6.6）。
+    let mut config_buf = [0u8; CONFIG_MAX];
+    let config_text = match storage.read_all(CONFIG_PATH, &mut config_buf).await {
+        Some(n) => core::str::from_utf8(&config_buf[..n]).unwrap_or(""),
+        None => {
+            println!("[Board] config.json not found, defaults");
+            ""
+        }
+    };
+    let (shake_params, applied) = config::shake_params(config_text);
+    let auto_off_min = config::auto_off_min(config_text);
+    println!(
+        "[Board] config shake keys={} threshold={}mg peaks={} window={}ms quiet={}ms auto_off={}min",
+        applied,
+        shake_params.threshold_mg,
+        shake_params.start_peaks,
+        shake_params.start_window_ms,
+        shake_params.end_quiet_ms,
+        auto_off_min
+    );
+    let shake = Shake::begin(&mut i2c, shake_params).await;
     let rng = Rng::new(peripherals.RNG, peripherals.ADC1);
 
     println!(
@@ -107,12 +133,27 @@ async fn main(_spawner: Spawner) -> ! {
     let mut manager = AppManager::new();
     manager.start(&mut ctx).await;
     let mut last_draw = Instant::now();
+    // 最後に操作（タップ・ボタン・振り）があった時刻。自動電源オフに使う。
+    let mut last_activity = Instant::now();
+    let auto_off = Duration::from_secs(u64::from(auto_off_min) * 60);
 
     loop {
         Timer::after(Duration::from_millis(POLL_MS)).await;
         let Some(event) = ctx.poll() else {
+            // 自動電源オフ（0 分なら無効）。USB 給電中は切らない（電池を減らさず、待機の画面が勝手に出るのを避ける）。
+            if auto_off_min > 0 && last_activity.elapsed() >= auto_off {
+                if ctx.usb_present() {
+                    last_activity = Instant::now();
+                } else {
+                    println!("[AppMgr] auto power off after {} min idle", auto_off_min);
+                    manager.handle(&mut ctx, Event::PowerButton).await;
+                    last_activity = Instant::now();
+                    last_draw = Instant::now();
+                }
+            }
             continue;
         };
+        last_activity = Instant::now();
         // 描画直後の操作は捨てる。電源ボタンは捨てない（押下の記録は読んだ時点で消えるため）。
         if event != Event::PowerButton
             && last_draw.elapsed() < Duration::from_millis(MIN_REDRAW_MS)
