@@ -11,8 +11,10 @@ use crate::apps::coin::CoinApp;
 use crate::apps::debug_refresh::RefreshTestApp;
 use crate::apps::debug_sd::SdCheckApp;
 use crate::apps::dice::DiceApp;
+use crate::apps::iching::IchingApp;
 use crate::apps::launcher::{LauncherApp, Slot, TileInfo};
 use crate::apps::omikuji::OmikujiApp;
+use crate::apps::rune::RuneApp;
 use crate::apps::stick::StickApp;
 use crate::apps::tarot::TarotApp;
 use crate::apps::yesno::YesNoApp;
@@ -22,6 +24,8 @@ use crate::services::display::Refresh;
 /// 登録アプリ（ランチャーを除く）。新しいアプリはここに足す。
 enum AnyApp {
     Tarot(TarotApp),
+    Iching(IchingApp),
+    Rune(RuneApp),
     Stick(StickApp),
     Amida(AmidaApp),
     Omikuji(OmikujiApp),
@@ -37,6 +41,8 @@ macro_rules! dispatch {
     ($self:expr, $app:ident => $body:expr) => {
         match $self {
             AnyApp::Tarot($app) => $body,
+            AnyApp::Iching($app) => $body,
+            AnyApp::Rune($app) => $body,
             AnyApp::Stick($app) => $body,
             AnyApp::Amida($app) => $body,
             AnyApp::Omikuji($app) => $body,
@@ -80,7 +86,7 @@ impl AnyApp {
 }
 
 /// 登録アプリ数。
-const APP_COUNT: usize = 9;
+const APP_COUNT: usize = 11;
 
 /// ランチャーのタイル I〜IX に置くアプリの ID（DESIGN.md §1 の収録順）。未登録の ID は未実装として薄く表示する。
 const MAIN_TILE_IDS: [&str; 9] = [
@@ -100,6 +106,8 @@ impl AppManager {
     pub fn new() -> Self {
         let apps = [
             AnyApp::Tarot(TarotApp::new()),
+            AnyApp::Iching(IchingApp::new()),
+            AnyApp::Rune(RuneApp::new()),
             AnyApp::Stick(StickApp::new()),
             AnyApp::Amida(AmidaApp::new()),
             AnyApp::Omikuji(OmikujiApp::new()),

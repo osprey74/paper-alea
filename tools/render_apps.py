@@ -353,6 +353,10 @@ def build():
     from render_m4 import build_m4
     build_m4(atlas, out)
 
+    # 易・ルーン（M5）。
+    from render_m5 import build_m5
+    build_m5(atlas, out)
+
     return atlas, out
 
 

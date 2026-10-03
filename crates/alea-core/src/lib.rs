@@ -8,7 +8,9 @@
 
 pub mod amida;
 pub mod dice;
+pub mod iching;
 pub mod omikuji;
+pub mod rune;
 pub mod shake;
 pub mod stick;
 pub mod tarot;
