@@ -1,37 +1,15 @@
 //! コイントス（DESIGN.md §10.2）。振り終わりで表（HEADS）か裏（TAILS）を決める。
 //!
-//! 意匠（線画）：表は二重円に「A」（Alea の頭文字）、裏は二重円に放射状の線。
+//! 確定デザイン（書物調）の台紙に、コインの面と「HEADS／表」「TAILS／裏」を重ねる。
+//! 表は二重円に「A」（Alea の頭文字）、裏は二重円に放射状の線と菱形。待機中は二重円に「?」。
+//! 画像部品は `tools/render_apps.py` が生成する。
 
-use embedded_graphics::pixelcolor::Gray2;
-use embedded_graphics::prelude::*;
-use embedded_graphics::primitives::{Circle, Line, PrimitiveStyle};
+use embedded_graphics::prelude::Point;
 use esp_println::println;
 
 use crate::services::app::{Action, App, Ctx, Event};
 use crate::services::display::Refresh;
-use crate::ui::layout::SCREEN_W;
-use crate::ui::widgets::{self, Lines};
-
-/// コインの中心。
-const COIN_CENTER: Point = Point::new(SCREEN_W / 2, 400);
-/// コインの直径 [px]。
-const COIN_D: u32 = 320;
-
-/// 裏面の放射線（中心からの単位ベクトル×1000・30° おき）。
-const RAYS: [(i32, i32); 12] = [
-    (1000, 0),
-    (866, 500),
-    (500, 866),
-    (0, 1000),
-    (-500, 866),
-    (-866, 500),
-    (-1000, 0),
-    (-866, -500),
-    (-500, -866),
-    (0, -1000),
-    (500, -866),
-    (866, -500),
-];
+use crate::ui::art;
 
 /// コイントス。
 pub struct CoinApp {
@@ -47,37 +25,24 @@ impl CoinApp {
     fn draw(&self, ctx: &mut Ctx) {
         ctx.clear();
         let mut canvas = ctx.canvas();
-        widgets::header(&mut canvas, "Coin", true);
-        let mut lines = Lines::below_header();
-        lines.put(&mut canvas, "Shake to toss");
-
-        let Some(heads) = self.heads else {
-            widgets::big_text(&mut canvas, "?", COIN_CENTER, 12, Gray2::BLACK);
-            return;
+        let parts: &[&art::Sprite] = match self.heads {
+            None => &[&art::COIN_FRAME, &art::COIN_WAIT],
+            Some(true) => &[
+                &art::COIN_FRAME,
+                &art::COIN_HEADS,
+                &art::COIN_WORD_HEADS,
+                &art::COIN_KANJI_HEADS,
+            ],
+            Some(false) => &[
+                &art::COIN_FRAME,
+                &art::COIN_TAILS,
+                &art::COIN_WORD_TAILS,
+                &art::COIN_KANJI_TAILS,
+            ],
         };
-        let thick = PrimitiveStyle::with_stroke(Gray2::BLACK, 6);
-        let thin = PrimitiveStyle::with_stroke(Gray2::BLACK, 3);
-        let _ = Circle::with_center(COIN_CENTER, COIN_D)
-            .into_styled(thick)
-            .draw(&mut canvas);
-        let _ = Circle::with_center(COIN_CENTER, COIN_D - 40)
-            .into_styled(thin)
-            .draw(&mut canvas);
-        if heads {
-            widgets::big_text(&mut canvas, "A", COIN_CENTER, 9, Gray2::BLACK);
-        } else {
-            let (r_in, r_out) = (40, (COIN_D as i32 - 40) / 2 - 16);
-            for (dx, dy) in RAYS {
-                let from = COIN_CENTER + Point::new(dx * r_in / 1000, dy * r_in / 1000);
-                let to = COIN_CENTER + Point::new(dx * r_out / 1000, dy * r_out / 1000);
-                let _ = Line::new(from, to).into_styled(thin).draw(&mut canvas);
-            }
-            let _ = Circle::with_center(COIN_CENTER, 60)
-                .into_styled(PrimitiveStyle::with_fill(Gray2::BLACK))
-                .draw(&mut canvas);
+        for s in parts {
+            art::draw(&mut canvas, s, Point::zero());
         }
-        let label = if heads { "HEADS" } else { "TAILS" };
-        widgets::big_text(&mut canvas, label, Point::new(SCREEN_W / 2, 680), 5, Gray2::BLACK);
     }
 }
 

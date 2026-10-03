@@ -250,7 +250,7 @@ impl Display {
 Developer ページの「Design preview」で画像として実機確認済み。
 
 **デザイン**：Claude Design「Alea ランチャー」 https://claude.ai/artifact/2oF1T17tXXRsjEz3YymGcm
-（1 段目＝ランチャー案、2 段目＝アプリ画面案）。実機で決めた文字の大きさは `tools/render_app_mockups.py` が正。
+（1 段目＝ランチャー案、2 段目＝アプリ画面案）。実機で決めた文字の大きさは `tools/render_apps.py` が正（旧 `render_app_mockups.py` は削除）。
 
 | 要素 | 大きさ | 備考 |
 |---|---|---|
@@ -266,3 +266,15 @@ Developer ページの「Design preview」で画像として実機確認済み�
    - 結果の数字と YES / NO / HEADS / TAILS は、Cormorant Garamond Bold をビットマップ書体に変換して実機で描く（オールドスタイル数字のまま）。
    - 結果の更新はモノクロの部分更新（灰色は使わない）。待機画面は結果の欄を「?」にする。
 3. 確認後、`debug_preview` と仮画面のコードを整理する。
+
+**進捗（2026-10-03）**
+- 1. 済：キャンバス 2 段目の 4 枚（AppDice・AppDice100・AppCoin・AppYesNo）の文字の大きさを表に揃えた（チップは `-webkit-text-stroke: 0.5px` で太さを近似）。
+- 2. 実装済・**実機の目視確認待ち**：`tools/render_apps.py` → `assets/app_art.{1bpp,rs}`、`ui/art.rs`、`apps/{dice,coin,yesno}.rs`。
+  書き込みと起動（ランチャー表示まで）は確認済み。確認用の合成画像は `tools/out/app_*.png`。
+  デザインに無かった画面（D6 以外の多面体・1D6 / 3D6・コインの裏・待機の「?」）は同じ意匠で補った。
+  - **確認手順**：ダイスで 10 種のチップを順にタップし、それぞれ振る（選択中のチップが黒地に白抜き・出目・合計）。
+    コイン・是か非かを表裏・YES / NO が両方出るまで振る。気になる点（数字の大きさ・位置・裏面の意匠）を指摘する。
+  - 実機確認（総司さん）：図形の中の数字（1D3・1D4・1D10・1D12・1D20・1D100）が下寄りに見えた → 字の範囲で上下を合わせるよう修正（`art::text_ink_centered`）。**修正後の目視確認待ち**。他は問題なし。
+  - 3D6 の合計「11」が「II」に似る件は、気にならないとのこと（そのままにする）。
+- 2. の修正後の表示も総司さんが実機で確認済み（2026-10-03）。
+- 3. 済：デザイン確認用の `debug_preview`・`mock_*.2bpp`・`render_app_mockups.py` を削除。仮画面のコード（拡大文字の `big_text` など）は 2. で置き換えて削除済み。

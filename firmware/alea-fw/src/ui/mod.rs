@@ -1,5 +1,6 @@
 //! UI の共通部品（座標定数・見出し帯・タイル・文字列整形）。
 
+pub mod art;
 pub mod layout;
 pub mod widgets;
 
@@ -12,7 +13,10 @@ pub struct FmtBuf<const N: usize> {
 impl<const N: usize> FmtBuf<N> {
     /// 空のバッファ。
     pub fn new() -> Self {
-        Self { buf: [0; N], len: 0 }
+        Self {
+            buf: [0; N],
+            len: 0,
+        }
     }
 
     /// 中身を空にする。

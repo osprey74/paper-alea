@@ -2,7 +2,6 @@
 //! [`crate::app_manager`] の登録表（`AnyApp`）に加える。
 
 pub mod coin;
-pub mod debug_preview;
 pub mod debug_refresh;
 pub mod debug_sd;
 pub mod dice;

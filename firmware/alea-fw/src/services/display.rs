@@ -88,11 +88,15 @@ impl Display {
         let t0 = Instant::now();
         let painted = match mode {
             Refresh::Gray => {
-                panel.paint_gray(i2c, &self.bw[..], &self.red[..], &self.busy).await;
+                panel
+                    .paint_gray(i2c, &self.bw[..], &self.red[..], &self.busy)
+                    .await;
                 Painted::Gray
             }
             Refresh::Partial => {
-                panel.paint_mono(i2c, &self.bw[..], &self.red[..], &self.busy).await
+                panel
+                    .paint_mono(i2c, &self.bw[..], &self.red[..], &self.busy)
+                    .await
             }
         };
         log_paint(mode, painted, panel.partials(), t0);
@@ -145,6 +149,32 @@ impl Canvas<'_> {
                 let Some(&byte) = data.get(i / 4) else { return };
                 let level = (byte >> (6 - 2 * (i % 4))) & 0b11;
                 self.set(x + col, y + row, level);
+            }
+        }
+    }
+
+    /// 1bit/画素の画像（行ごとにバイト境界・MSB から・1=黒）の黒い画素だけを `(x, y)` に描く。
+    pub fn blit_1bpp(&mut self, x: i32, y: i32, w: i32, h: i32, data: &[u8]) {
+        let stride = (w as usize + 7) / 8;
+        for row in 0..h {
+            for col in 0..w {
+                let Some(&byte) = data.get(row as usize * stride + col as usize / 8) else {
+                    return;
+                };
+                if byte & (0x80 >> (col % 8)) != 0 {
+                    self.set(x + col, y + row, 0);
+                }
+            }
+        }
+    }
+
+    /// 矩形の中の階調を反転する（白黒の画面で選択中の項目を黒地に白抜きにする）。
+    pub fn invert_rect(&mut self, x: i32, y: i32, w: i32, h: i32) {
+        for py in y..y + h {
+            for px in x..x + w {
+                if let Some(t) = self.get(px, py) {
+                    self.set(px, py, 3 - t);
+                }
             }
         }
     }
