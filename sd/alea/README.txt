@@ -6,9 +6,12 @@ Copy this "alea" folder to the root of a FAT32 microSD card.
 /alea/
   config.json            shake thresholds etc. / シェイク閾値など
   fonts/                 Japanese fonts / 日本語フォント
-  tarot/cards.json       78 cards metadata / 78枚のメタデータ
-  tarot/img/NN.a2b       card images (generated, not in the repository)
-                         カード画像（変換ツールで生成。リポジトリには含めない）
+  tarot/img/NN.a2b       card images and back.a2b (tools/convert_cards.py)
+                         カード画像と裏面（tools/convert_cards.py で生成）
+  tarot/cap/NN.a1b       card names / カード名（tools/render_tarot.py で生成）
+  tarot/word/NN.a1b      keywords / キーワード（tools/render_tarot.py で生成）
+                         The tarot files are generated and not in the repository.
+                         タロットのファイルは生成物で、リポジトリには含めない。
   iching/hexagrams.json  64 hexagrams / 64卦
   rune/runes.json        24 runes / 24文字
   omikuji/omikuji.json   fortunes / 運勢と一言

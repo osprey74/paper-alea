@@ -8,6 +8,7 @@
 
 pub mod dice;
 pub mod shake;
+pub mod tarot;
 
 /// 32 ビット一様乱数の供給源。
 pub trait RandomSource {

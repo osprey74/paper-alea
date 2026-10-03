@@ -68,19 +68,19 @@ impl Storage {
     /// `path` にファイルかディレクトリがあるか。
     pub async fn exists(&mut self, path: &str) -> bool {
         match self.sd.as_mut() {
-            Some(sd) => sd.exists(path).await,
+            Some(sd) => sd.exists(rel(path)).await,
             None => false,
         }
     }
 
     /// ファイルを `buf` に読み込み、読んだバイト数を返す。
     pub async fn read_all(&mut self, path: &str, buf: &mut [u8]) -> Option<usize> {
-        self.sd.as_mut()?.read(path, buf).await
+        self.sd.as_mut()?.read(rel(path), buf).await
     }
 
     /// ファイル全体を読み捨て、読めたバイト数を返す（読込速度の計測用）。
     pub async fn read_discard(&mut self, path: &str) -> Option<u64> {
-        self.sd.as_mut()?.read_discard(path).await
+        self.sd.as_mut()?.read_discard(rel(path)).await
     }
 
     /// 総容量と空き容量。
@@ -90,14 +90,20 @@ impl Storage {
 
     /// ディレクトリの中身を `out` に詰め、項目数を返す。
     pub async fn list(&mut self, dir: &str, out: &mut [DirItem]) -> Option<usize> {
-        self.sd.as_mut()?.list(dir, out).await
+        self.sd.as_mut()?.list(rel(dir), out).await
     }
 
     /// `dir` を作り、`path` を `size` バイトのファイルにする（ベンチ用）。
     pub async fn ensure_file(&mut self, dir: &str, path: &str, size: u64) -> bool {
         match self.sd.as_mut() {
-            Some(sd) => sd.ensure_file(dir, path, size).await,
+            Some(sd) => sd.ensure_file(rel(dir), rel(path), size).await,
             None => false,
         }
     }
+}
+
+/// FAT のルートからの相対パスにする。embedded-fatfs は先頭の `/` があると開けないため、
+/// `"/alea/tarot/..."` と `"alea/tarot/..."` のどちらでも渡せるように取り除く（2026-10-03 実機で判明）。
+fn rel(path: &str) -> &str {
+    path.trim_start_matches('/')
 }

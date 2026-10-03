@@ -143,12 +143,21 @@ pub struct Canvas<'a> {
 impl Canvas<'_> {
     /// 2bit/画素の画像（横に MSB から 4 画素/バイト・0=黒〜3=白）を `(x, y)` に描く。
     pub fn blit_2bpp(&mut self, x: i32, y: i32, w: i32, h: i32, data: &[u8]) {
+        self.blit_2bpp_rot(x, y, w, h, data, false);
+    }
+
+    /// [`Self::blit_2bpp`] と同じ。`rot180` なら 180° 回して描く（タロットの逆位置）。
+    pub fn blit_2bpp_rot(&mut self, x: i32, y: i32, w: i32, h: i32, data: &[u8], rot180: bool) {
         for row in 0..h {
             for col in 0..w {
                 let i = (row * w + col) as usize;
                 let Some(&byte) = data.get(i / 4) else { return };
                 let level = (byte >> (6 - 2 * (i % 4))) & 0b11;
-                self.set(x + col, y + row, level);
+                if rot180 {
+                    self.set(x + w - 1 - col, y + h - 1 - row, level);
+                } else {
+                    self.set(x + col, y + row, level);
+                }
             }
         }
     }

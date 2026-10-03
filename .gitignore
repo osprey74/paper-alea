@@ -17,6 +17,9 @@
 *.a2b
 /sd/alea/tarot/img/*
 !/sd/alea/tarot/img/.gitkeep
+# タロットの文字画面（tools/render_tarot.py が caelum-liber-arcanorum の文から生成）
+/sd/alea/tarot/cap/
+/sd/alea/tarot/word/
 /tools/out/
 # 手元の作業用（参照画像・実機写真など）
 /local/

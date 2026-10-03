@@ -1,6 +1,6 @@
 """タロットの絵柄を Alea の 4 階調画像 `.a2b` に変換する（DESIGN.md §8）。
 
-処理：グレースケール → 480×720 に LANCZOS で縮小（2:3 でなければ中央を切り抜く）→
+処理：グレースケール → 360×540 に LANCZOS で縮小（2:3 でなければ中央を切り抜く）→
 autocontrast(cutoff) → コントラスト強調 → Atkinson ディザリングで 4 階調 → `.a2b`。
 
 入力（既定）:
@@ -33,7 +33,8 @@ SRC_BACK = Path("g:/dev/caelum-liber-arcanorum/src/assets/cards/full/back.webp")
 DEST = ROOT / "sd" / "alea" / "tarot" / "img"
 OUT = ROOT / "tools" / "out"
 
-W, H = 480, 720
+# B 案（額装）のカードの大きさ（2026-10-03 決定）。
+W, H = 360, 540
 MAGIC = b"A2B1"
 
 

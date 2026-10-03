@@ -1,6 +1,7 @@
 //! UI の共通部品（座標定数・見出し帯・タイル・文字列整形）。
 
 pub mod art;
+pub mod image;
 pub mod layout;
 pub mod widgets;
 

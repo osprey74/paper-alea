@@ -278,3 +278,15 @@ Developer ページの「Design preview」で画像として実機確認済み�
   - 3D6 の合計「11」が「II」に似る件は、気にならないとのこと（そのままにする）。
 - 2. の修正後の表示も総司さんが実機で確認済み（2026-10-03）。
 - 3. 済：デザイン確認用の `debug_preview`・`mock_*.2bpp`・`render_app_mockups.py` を削除。仮画面のコード（拡大文字の `big_text` など）は 2. で置き換えて削除済み。
+
+## 10. M3（タロット）の進捗（2026-10-03）
+
+- M2 は完了（DESIGN.md §12 の 3 条件を確認済み）。
+- デザイン：キャンバス 3 段目の **B 案（額装）** で確定。文字の大きさはキャンバスのまま。
+- 実装済み：`alea-core::tarot`（78 枚の一様抽選・正逆・分布テスト 3 件）、`tools/convert_cards.py`（360×540）、
+  `tools/render_tarot.py`（名前の帯・キーワード画面）、`render_apps.py` にタロットの台紙と札、`apps/tarot.rs`、`ui/image.rs`。
+- **実機確認済み（2026-10-03）**：表示・絵柄・逆位置・キーワードの切替とも正常（総司さん）。初回は「microSD: not found」→ パス先頭の `/` が原因で、Storage で取り除くよう修正。
+- 確認の手順（記録）：
+  1. PC で `python tools/convert_cards.py` と `python tools/render_tarot.py` を実行し、`sd/alea/tarot/` の `img/`・`cap/`・`word/` を microSD の `/alea/tarot/` にコピーする。
+  2. ランチャーで I（タロット）を開く → 裏面の待機画面。振る → カード・名前・正逆（4 階調）。B → キーワード（今の向きの札が黒地）。B → カードに戻る。A → ランチャー。
+  3. 確認したいこと：4 階調の濃さ（D-2）、逆位置の回転、正逆が偏らないか（シリアルの `[tarot]` ログ）、表示までの時間。

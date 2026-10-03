@@ -6,4 +6,5 @@ pub mod debug_refresh;
 pub mod debug_sd;
 pub mod dice;
 pub mod launcher;
+pub mod tarot;
 pub mod yesno;

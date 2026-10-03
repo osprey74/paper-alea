@@ -80,18 +80,20 @@ def rule(d: ImageDraw.ImageDraw, cx: float, y: float, width: float, diamond: flo
     d.polygon([(s(cx), s(y - r)), (s(cx + r), s(y)), (s(cx), s(y + r)), (s(cx - r), s(y))], fill=BLACK)
 
 
-def frame(d: ImageDraw.ImageDraw, numeral: str, title: str):
-    """二重枠・見出し（ローマ数字／アプリ名／菱形付きの罫）・最下部の案内。"""
+def frame(d: ImageDraw.ImageDraw, numeral: str | None, title: str | None, hint: str = "振って決める"):
+    """二重枠・見出し（ローマ数字／アプリ名／菱形付きの罫）・最下部の案内。
+    title が None なら見出しを描かない（タロットの結果画面）。"""
     d.rectangle([s(14), s(14), s(466) - 1, s(786) - 1], outline=BLACK, width=s(2))
     d.rectangle([s(21), s(21), s(459) - 1, s(779) - 1], outline=BLACK, width=s(1))
-    text_center(d, 240, 45, numeral, font_serif(24), BLACK)
-    text_center(d, 240, 83, title, font_mincho(30), BLACK, spacing_em=0.3)
-    rule(d, 240, 114, 220, 7)
+    if title is not None:
+        if numeral:
+            text_center(d, 240, 45, numeral, font_serif(24), BLACK)
+        text_center(d, 240, 83, title, font_mincho(30), BLACK, spacing_em=0.3)
+        rule(d, 240, 114, 220, 7)
     d.line([s(CX0), s(FOOTER_TOP), s(CX1), s(FOOTER_TOP)], fill=BLACK, width=s(1))
     # 最下部の案内（20px・太くしない）。
     f = font_mincho(20)
     d.text((s(CX0), s(754)), "A　戻る", font=f, fill=BLACK, anchor="lm")
-    hint = "振って決める"
     gap = 0.2 * f.size
     total = sum(f.getlength(c) for c in hint) + gap * (len(hint) - 1)
     text_center(d, CX1 - total / S / 2, 754, hint, f, BLACK, spacing_em=0.2)
@@ -115,6 +117,40 @@ def chips(d: ImageDraw.ImageDraw):
     for (x, y, w, h), lab in zip(chip_rects(), CHIP_LABELS):
         d.rectangle([s(x), s(y), s(x + w) - 1, s(y + h) - 1], outline=BLACK, width=s(1))
         text_center(d, x + w / 2, y + h / 2, lab, f, BLACK, stroke=CHIP_STROKE)
+
+
+# ---- タロット（B 案・額装） ----
+
+# カード（360×540）の左上。待機は見出しと案内の間の中央、結果は内枠の上から 16px。
+TAROT_CARD_W, TAROT_CARD_H = 360, 540
+TAROT_WAIT_CARD = (60, 162)
+TAROT_RESULT_CARD = (60, 38)
+# 結果画面の名前の帯（英名・和名・正逆の札）の中心の高さ。
+TAROT_CAP_EN_Y, TAROT_CAP_JA_Y, TAROT_CAP_CHIP_Y = 603, 643, 688
+# キーワード画面：正逆の札の中心の高さ、キーワード 4 行の最初の高さと行送り、間の罫。
+TAROT_WORD_CHIP_Y = (215, 495)
+TAROT_WORD_LINE0, TAROT_WORD_PITCH = 53, 47
+TAROT_WORD_RULE_Y = 452
+
+
+def orient_chip(d: ImageDraw.ImageDraw, cx: int, cy: int, label: str, filled: bool):
+    """正位置・逆位置の札。filled なら黒地に白抜き、でなければ枠だけ。矩形 (x, y, w, h) を返す。"""
+    f = font_mincho(20)
+    gap = 0.2 * f.size
+    tw = (sum(f.getlength(c) for c in label) + gap * (len(label) - 1)) / S
+    w, h = round(tw) + 24, 32
+    x, y = cx - w // 2, cy - h // 2
+    if filled:
+        d.rectangle([s(x), s(y), s(x + w) - 1, s(y + h) - 1], fill=BLACK)
+    else:
+        d.rectangle([s(x), s(y), s(x + w) - 1, s(y + h) - 1], outline=BLACK, width=s(1))
+    text_center(d, cx, cy, label, f, WHITE if filled else BLACK, spacing_em=0.2)
+    return (x, y, w, h)
+
+
+def tarot_word_chip_rects():
+    img, d = new()
+    return [orient_chip(d, 240, cy, lab, False) for cy, lab in zip(TAROT_WORD_CHIP_Y, ["正位置", "逆位置"])]
 
 
 # ---- ダイス ----
@@ -242,6 +278,18 @@ def build():
     const("COIN_FRAME", Sprite(render(lambda d: frame(d, "V", "コイン"))), "コインの台紙。")
     const("YESNO_FRAME", Sprite(render(lambda d: (frame(d, "IX", "是か非か"), rule(d, 240, 474, 260, 9)))),
           "是か非かの台紙（結果の下の罫を含む）。")
+
+    # タロット。
+    const("TAROT_WAIT_FRAME", Sprite(render(lambda d: frame(d, "I", "タロット", "振って一枚を引く"))),
+          "タロットの待機画面の台紙（裏面はカード画像を重ねる）。")
+    for name, lab in [("UPRIGHT", "正位置"), ("REVERSED", "逆位置")]:
+        const(f"TAROT_CHIP_{name}", Sprite(render(lambda d: orient_chip(d, 240, TAROT_CAP_CHIP_Y, lab, True))),
+              f"結果画面の札「{lab}」（黒地に白抜き）。")
+    for name, (x, y) in [("TAROT_WAIT_CARD", TAROT_WAIT_CARD), ("TAROT_RESULT_CARD", TAROT_RESULT_CARD)]:
+        out.append(f"/// カード（{TAROT_CARD_W}×{TAROT_CARD_H}）の左上。")
+        out.append(f"pub const {name}: (i32, i32) = ({x}, {y});")
+    out.append("/// キーワード画面の札の矩形 (x, y, w, h)。[正位置, 逆位置]。今の向きの札の内側を反転する。")
+    out.append(f"pub const TAROT_WORD_CHIPS: [(i32, i32, i32, i32); 2] = {list(tarot_word_chip_rects())};".replace("[(", "[(").replace(")]", ")]"))
 
     # ダイス。
     rects = chip_rects()
