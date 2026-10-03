@@ -205,6 +205,54 @@ def iching_result(values=(7, 7, 9, 8, 6, 8)):
     return c
 
 
+def text_width(font, s):
+    return sum(g[1] for ch in s for g in font if g[0] == ch) // 16
+
+
+def settings(backlight=1, auto_off=3, vbat_mv=3920, usb=False):
+    """設定画面（apps/settings.rs の draw と battery_row と同じ組み方）。"""
+    # 残量の目安は alea-core::settings::battery_percent と同じ表。
+    curve = [(3400, 0), (3500, 5), (3600, 15), (3700, 30), (3800, 50), (3900, 65), (4000, 80), (4100, 92), (4150, 100)]
+
+    def percent(mv):
+        if mv <= curve[0][0]:
+            return 0
+        for (v0, p0), (v1, p1) in zip(curve, curve[1:]):
+            if mv <= v1:
+                p = p0 + (mv - v0) * (p1 - p0) // (v1 - v0)
+                return (p + 2) // 5 * 5
+        return 100
+
+    c = canvas()
+    draw(c, A["SETTINGS_FRAME"])
+    inset_invert(c, A["SETTINGS_LIGHT"][backlight])
+    choices = [0, 1, 3, 5, 10]
+    if auto_off in choices:
+        inset_invert(c, A["SETTINGS_AUTO"][choices.index(auto_off)])
+    y = A["SETTINGS_BATTERY_Y"]
+    volt = f"{vbat_mv // 1000}.{vbat_mv % 1000 // 10:02}"
+    pct = f"{percent(vbat_mv)}%"
+    unit_gap, group_gap = 6, 28
+    left = text_width(A["FONT_BATT_V"], volt) + unit_gap + A["BATT_V"][2]
+    right = A["BATT_USB"][2] if usb else A["BATT_ABOUT"][2] + unit_gap + text_width(A["FONT_BATT_PCT"], pct)
+    x = 240 - (left + group_gap + right) // 2
+    tw = text_width(A["FONT_BATT_V"], volt)
+    text(c, A["FONT_BATT_V"], volt, (x + tw // 2, y))
+    x += tw + unit_gap
+    vw = A["BATT_V"][2]
+    draw(c, A["BATT_V"], (x + vw // 2, y))
+    x += vw + group_gap
+    if usb:
+        draw(c, A["BATT_USB"], (x + A["BATT_USB"][2] // 2, y))
+    else:
+        aw = A["BATT_ABOUT"][2]
+        draw(c, A["BATT_ABOUT"], (x + aw // 2, y))
+        x += aw + unit_gap
+        pw = text_width(A["FONT_BATT_PCT"], pct)
+        text(c, A["FONT_BATT_PCT"], pct, (x + pw // 2, y))
+    return c
+
+
 def save(name, c):
     OUT.mkdir(parents=True, exist_ok=True)
     img = Image.fromarray((c * 85).astype(np.uint8))
@@ -218,4 +266,5 @@ if __name__ == "__main__":
     save("iching_result", iching_result())
     save("dice_3d6", dice_3d6())
     save("stick_northeast", stick_eight(1))
+    save("settings", settings())
     print("wrote", OUT)
