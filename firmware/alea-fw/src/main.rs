@@ -23,6 +23,8 @@ use static_cell::ConstStaticCell;
 
 use app_manager::AppManager;
 use alea_core::config;
+use alea_core::settings::Settings;
+use board::power;
 use services::app::{Ctx, Event, POLL_MS};
 use services::display::{Display, PLANE_BYTES};
 use services::input::Input;
@@ -129,18 +131,29 @@ async fn main(_spawner: Spawner) -> ! {
 
     let display = Display::new(panel, busy, BW_PLANE.take(), RED_PLANE.take());
     let input = Input::new(btn_a, btn_b, tp_int);
-    let mut ctx = Ctx::new(display, i2c, storage, input, shake, rng);
+    // 設定（バックライト・自動電源オフ）。M5PM1 の RTC RAM に保存した値があればそれを使う（設定画面が config.json より優先）。
+    let settings = power::load_settings(&mut i2c).unwrap_or(Settings {
+        backlight: 0,
+        auto_off_min: auto_off_min.min(120) as u8,
+    });
+    println!(
+        "[Board] settings backlight={} auto_off={}min",
+        settings.backlight, settings.auto_off_min
+    );
+    let mut ctx = Ctx::new(display, i2c, storage, input, shake, rng, settings);
+    ctx.apply_backlight(true);
     let mut manager = AppManager::new();
     manager.start(&mut ctx).await;
     let mut last_draw = Instant::now();
     // 最後に操作（タップ・ボタン・振り）があった時刻。自動電源オフに使う。
     let mut last_activity = Instant::now();
-    let auto_off = Duration::from_secs(u64::from(auto_off_min) * 60);
 
     loop {
         Timer::after(Duration::from_millis(POLL_MS)).await;
         let Some(event) = ctx.poll() else {
             // 自動電源オフ（0 分なら無効）。USB 給電中は切らない（電池を減らさず、待機の画面が勝手に出るのを避ける）。
+            let auto_off_min = ctx.auto_off_min();
+            let auto_off = Duration::from_secs(u64::from(auto_off_min) * 60);
             if auto_off_min > 0 && last_activity.elapsed() >= auto_off {
                 if ctx.usb_present() {
                     last_activity = Instant::now();

@@ -17,6 +17,7 @@ use crate::apps::iching::IchingApp;
 use crate::apps::launcher::{LauncherApp, Slot, TileInfo};
 use crate::apps::omikuji::OmikujiApp;
 use crate::apps::rune::RuneApp;
+use crate::apps::settings::SettingsApp;
 use crate::apps::stick::StickApp;
 use crate::apps::tarot::TarotApp;
 use crate::apps::yesno::YesNoApp;
@@ -27,6 +28,7 @@ use crate::ui::layout::SCREEN_W;
 /// 登録アプリ（ランチャーを除く）。新しいアプリはここに足す。
 enum AnyApp {
     Tarot(TarotApp),
+    Settings(SettingsApp),
     Iching(IchingApp),
     Rune(RuneApp),
     Stick(StickApp),
@@ -44,6 +46,7 @@ macro_rules! dispatch {
     ($self:expr, $app:ident => $body:expr) => {
         match $self {
             AnyApp::Tarot($app) => $body,
+            AnyApp::Settings($app) => $body,
             AnyApp::Iching($app) => $body,
             AnyApp::Rune($app) => $body,
             AnyApp::Stick($app) => $body,
@@ -98,7 +101,7 @@ const STANDBY_POLL_MS: u64 = 100;
 const SHUTDOWN_WAIT_MS: u64 = 2000;
 
 /// 登録アプリ数。
-const APP_COUNT: usize = 11;
+const APP_COUNT: usize = 12;
 
 /// ランチャーのタイル I〜IX に置くアプリの ID（DESIGN.md §1 の収録順）。未登録の ID は未実装として薄く表示する。
 const MAIN_TILE_IDS: [&str; 9] = [
@@ -128,23 +131,15 @@ impl AppManager {
             AnyApp::YesNo(YesNoApp::new()),
             AnyApp::RefreshTest(RefreshTestApp::new()),
             AnyApp::SdCheck(SdCheckApp::new()),
+            AnyApp::Settings(SettingsApp::new()),
         ];
         let slot = |k: usize| Slot {
             app: k,
             info: apps[k].info(),
         };
         let main = MAIN_TILE_IDS.map(|id| apps.iter().position(|a| a.id() == id).map(slot));
-        // 開発用ページ：ID が debug_ で始まるアプリを登録順に並べる。
-        let mut dev = [None; crate::ui::layout::TILE_COUNT];
-        let mut n = 0;
-        for (k, a) in apps.iter().enumerate() {
-            if a.id().starts_with("debug_") && n < dev.len() {
-                dev[n] = Some(slot(k));
-                n += 1;
-            }
-        }
         Self {
-            launcher: LauncherApp::new(main, dev),
+            launcher: LauncherApp::new(main),
             apps,
             current: None,
         }
@@ -175,10 +170,14 @@ impl AppManager {
             // 振りの合図の LED は、結果を描き終えたら（描かないアプリでも）消す。
             ctx.set_shake_led(false);
         }
-        if let Action::Open(i) = action {
-            if i < APP_COUNT {
-                self.switch(ctx, Some(i)).await;
-            }
+        match action {
+            Action::Open(i) if i < APP_COUNT => self.switch(ctx, Some(i)).await,
+            Action::OpenId(id) => match self.apps.iter().position(|a| a.id() == id) {
+                Some(i) => self.switch(ctx, Some(i)).await,
+                None => println!("[AppMgr] no app {}", id),
+            },
+            Action::Close if self.current.is_some() => self.switch(ctx, None).await,
+            _ => {}
         }
     }
 
@@ -207,10 +206,13 @@ impl AppManager {
                 continue;
             }
             println!("[AppMgr] usb present, standby");
+            // 待機中はバックライトを消す（設定は変えない・戻ったら点け直す）。
+            ctx.apply_backlight(false);
             loop {
                 Timer::after_millis(STANDBY_POLL_MS).await;
                 if ctx.power_button() {
                     println!("[AppMgr] resume");
+                    ctx.apply_backlight(true);
                     self.enter(ctx, None).await;
                     return;
                 }

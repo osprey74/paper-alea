@@ -864,3 +864,47 @@ pub const RUNE_KANA_Y: i32 = 530;
 pub const RUNE_KANA_GAP: i32 = 12;
 /// 名前（ログ用）。
 pub const RUNE_NAMES: [&str; 24] = ["FEHU", "URUZ", "THURISAZ", "ANSUZ", "RAIDHO", "KENAZ", "GEBO", "WUNJO", "HAGALAZ", "NAUDIZ", "ISA", "JERA", "EIHWAZ", "PERTHRO", "ALGIZ", "SOWILO", "TIWAZ", "BERKANO", "EHWAZ", "MANNAZ", "LAGUZ", "INGWAZ", "DAGAZ", "OTHALA"];
+/// 設定画面の台紙（札はすべて未選択の姿・最下部に Alea v1.0.0）。
+pub const SETTINGS_FRAME: Sprite = Sprite { x: 14, y: 14, w: 452, h: 772, off: 1070104 };
+/// バックライトの札の矩形 [消灯, 弱, 強]。
+pub const SETTINGS_LIGHT: [(i32, i32, i32, i32); 3] = [(40, 178, 129, 64), (175, 178, 130, 64), (311, 178, 129, 64)];
+/// 自動電源オフの札の矩形（`AUTO_OFF_CHOICES` の順）。
+pub const SETTINGS_AUTO: [(i32, i32, i32, i32); 5] = [(40, 292, 75, 64), (121, 292, 75, 64), (202, 292, 76, 64), (284, 292, 75, 64), (365, 292, 75, 64)];
+/// 開発用のボタンの矩形 [Refresh test, SD check]。
+pub const SETTINGS_DEV: [(i32, i32, i32, i32); 2] = [(40, 494, 197, 64), (243, 494, 197, 64)];
+/// 電池の行の中心の高さ。
+pub const SETTINGS_BATTERY_Y: i32 = 432;
+/// 電池電圧の数字（34px）。
+pub const FONT_BATT_V: [Glyph; 11] = [
+    Glyph { ch: b'0', adv: 260, sprite: Sprite { x: 1, y: -3, w: 14, h: 14, off: 1114108 } },
+    Glyph { ch: b'1', adv: 180, sprite: Sprite { x: 2, y: -2, w: 7, h: 13, off: 1114136 } },
+    Glyph { ch: b'2', adv: 220, sprite: Sprite { x: 1, y: -3, w: 12, h: 14, off: 1114149 } },
+    Glyph { ch: b'3', adv: 216, sprite: Sprite { x: 1, y: -3, w: 11, h: 23, off: 1114177 } },
+    Glyph { ch: b'4', adv: 248, sprite: Sprite { x: 1, y: -3, w: 13, h: 20, off: 1114223 } },
+    Glyph { ch: b'5', adv: 224, sprite: Sprite { x: 2, y: -3, w: 10, h: 23, off: 1114263 } },
+    Glyph { ch: b'6', adv: 252, sprite: Sprite { x: 1, y: -11, w: 14, h: 22, off: 1114309 } },
+    Glyph { ch: b'7', adv: 232, sprite: Sprite { x: 1, y: -3, w: 12, h: 23, off: 1114353 } },
+    Glyph { ch: b'8', adv: 268, sprite: Sprite { x: 1, y: -9, w: 15, h: 20, off: 1114399 } },
+    Glyph { ch: b'9', adv: 256, sprite: Sprite { x: 1, y: -3, w: 14, h: 23, off: 1114439 } },
+    Glyph { ch: b'.', adv: 112, sprite: Sprite { x: 2, y: 7, w: 3, h: 4, off: 1114485 } },
+];
+/// 電圧の単位「V」（中心からの相対）。
+pub const BATT_V: Sprite = Sprite { x: -10, y: -11, w: 21, h: 22, off: 1114489 };
+/// 残量の数字と「%」（22px）。
+pub const FONT_BATT_PCT: [Glyph; 11] = [
+    Glyph { ch: b'0', adv: 220, sprite: Sprite { x: 1, y: -7, w: 12, h: 17, off: 1114555 } },
+    Glyph { ch: b'1', adv: 200, sprite: Sprite { x: 2, y: -6, w: 9, h: 16, off: 1114589 } },
+    Glyph { ch: b'2', adv: 220, sprite: Sprite { x: 1, y: -7, w: 11, h: 17, off: 1114621 } },
+    Glyph { ch: b'3', adv: 216, sprite: Sprite { x: 1, y: -7, w: 11, h: 17, off: 1114655 } },
+    Glyph { ch: b'4', adv: 216, sprite: Sprite { x: 1, y: -7, w: 12, h: 17, off: 1114689 } },
+    Glyph { ch: b'5', adv: 212, sprite: Sprite { x: 1, y: -7, w: 11, h: 17, off: 1114723 } },
+    Glyph { ch: b'6', adv: 216, sprite: Sprite { x: 1, y: -7, w: 12, h: 17, off: 1114757 } },
+    Glyph { ch: b'7', adv: 228, sprite: Sprite { x: 1, y: -7, w: 12, h: 17, off: 1114791 } },
+    Glyph { ch: b'8', adv: 224, sprite: Sprite { x: 1, y: -7, w: 12, h: 17, off: 1114825 } },
+    Glyph { ch: b'9', adv: 216, sprite: Sprite { x: 1, y: -7, w: 11, h: 17, off: 1114859 } },
+    Glyph { ch: b'%', adv: 352, sprite: Sprite { x: 2, y: -7, w: 18, h: 17, off: 1114893 } },
+];
+/// 「約」（中心からの相対）。
+pub const BATT_ABOUT: Sprite = Sprite { x: -10, y: -9, w: 20, h: 21, off: 1114944 };
+/// 「USB 給電中」（中心からの相対）。
+pub const BATT_USB: Sprite = Sprite { x: -62, y: -9, w: 124, h: 21, off: 1115007 };

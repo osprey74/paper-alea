@@ -324,3 +324,12 @@ Developer ページの「Design preview」で画像として実機確認済み�
 - M1〜M6 完了。総司さんの判断で正式リリースとする。バージョン 1.0.0（`firmware/alea-fw/Cargo.toml`・`crates/alea-core/Cargo.toml`）。
 - 配布物：`alea-fw-v1.0.0-merged.bin`（`espflash save-image --chip esp32s3 --flash-size 16mb --merge --skip-padding` で作成・0x0 に書き込む）。
 - 未確認：PaperMono-Lite（C153-Lite）の実機（在庫切れ・入荷後に確認予定）。
+
+## 15. 設定画面（v1.0.0 の後・2026-10-03）
+
+- ランチャーの開発用ページ（B）を設定画面に置き換えた。デザインはキャンバス 6 段目。
+- バックライト（消灯・弱・強）、自動電源オフ（しない・1・3・5・10 分）、電池（電圧・残量の目安）、開発用（Refresh test・SD check）。
+- 設定は M5PM1 の RTC RAM に保存し、起動時に復元（ライトと札）。電源オフの直前にライトを消す。USB 給電中の待機でも消す。
+- 実装：`alea-core::settings`（テスト 4 件）、`board/power.rs`（フロントライト・VBAT・RTC RAM）、`apps/settings.rs`、`tools/render_m6.py`、`Action::OpenId`・`Action::Close`。
+- **実機確認済み（総司さん）**。
+- 記事用のスクリーンショットは `tools/screenshots.py`（未コミット・`tools/out/screenshots/`）。

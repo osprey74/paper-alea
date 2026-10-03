@@ -26,8 +26,9 @@ A pocket collection of "chance" apps for the M5Stack PaperMono. Shake the device
 
 - ランチャーでアプリのタイルをタップして開きます。ボタン A でいつでもランチャーに戻ります。
 - 本体を振ると結果が出ます（あみだくじは上の番号をタップ）。ボタン B はアプリごとの切替（ダイスの種類はチップをタップ、棒倒しの方式、あみだくじの本数、ルーンの逆位置、タロットのキーワード表示）です。
+- ランチャーでボタン B を押すと設定画面が開きます（バックライト 3 段階・自動電源オフの時間・電池残量）。設定は電源を切っても残ります。
 - 電源ボタンを 1 回押すと表紙を表示して電源が切れ、もう一度押すと起動します（USB 接続中は切れずに待機し、もう一度押すと戻ります）。振っている間は緑の LED が点きます。操作が無いまま 3 分たつと自動で電源が切れます（USB 接続中を除く）。
-- Open an app by tapping its tile. Button A returns to the launcher. Shake the device to get a result. Button B switches app-specific options. Press the power button once to power off (shows a cover screen) and again to power on.
+- Open an app by tapping its tile. Button A returns to the launcher. Shake the device to get a result. Button B switches app-specific options. Press the power button once to power off (shows a cover screen) and again to power on. On the launcher, button B opens the settings (backlight, auto power-off, battery).
 
 ## 対応機種 / Hardware
 

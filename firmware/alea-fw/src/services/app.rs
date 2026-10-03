@@ -13,7 +13,9 @@ use crate::services::input::{Input, InputEvent};
 use crate::services::rng::Rng;
 use crate::services::shake::Shake;
 use crate::services::storage::Storage;
+use alea_core::settings::{backlight_duty, Settings};
 use alea_core::shake::ShakeEvent;
+use m5stack_papermono_lite::pmic::PWM0_DUTY_MAX;
 
 /// アプリに配送するイベント。
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -54,6 +56,10 @@ pub enum Action {
     None,
     /// 登録順 `index` のアプリを開く（ランチャーだけが使う）。
     Open(usize),
+    /// ID のアプリを開く（ランチャーから設定、設定から開発用の画面）。
+    OpenId(&'static str),
+    /// ランチャーに戻る（設定画面のボタン B）。
+    Close,
 }
 
 /// ミニアプリ。
@@ -93,6 +99,8 @@ pub struct Ctx {
     tick: u32,
     /// 振りの合図の LED（緑）を点けているか。
     shake_led: bool,
+    /// 設定（バックライト・自動電源オフ）。変えたら M5PM1 の RTC RAM に保存する。
+    settings: Settings,
 }
 
 impl Ctx {
@@ -104,6 +112,7 @@ impl Ctx {
         input: Input,
         shake: Shake,
         rng: Rng,
+        settings: Settings,
     ) -> Self {
         Self {
             display,
@@ -114,6 +123,7 @@ impl Ctx {
             rng,
             tick: 0,
             shake_led: false,
+            settings,
         }
     }
 
@@ -159,8 +169,42 @@ impl Ctx {
         }
     }
 
-    /// USB から給電されているか（AppManager の電源オフの手順で使う）。
-    pub(crate) fn usb_present(&mut self) -> bool {
+    /// バックライトの段階（0=消灯・1=弱・2=強）。
+    pub fn backlight(&self) -> u8 {
+        self.settings.backlight
+    }
+
+    /// バックライトの段階を変えてすぐ反映し、保存する。
+    pub fn set_backlight(&mut self, level: u8) {
+        self.settings.backlight = level;
+        self.apply_backlight(true);
+        power::save_settings(&mut self.i2c, self.settings);
+    }
+
+    /// バックライトを設定どおりに点ける（`on`）か、設定を変えずに消す（USB 給電中の待機）。
+    pub(crate) fn apply_backlight(&mut self, on: bool) {
+        let level = if on { self.settings.backlight } else { 0 };
+        power::set_frontlight(&mut self.i2c, backlight_duty(level, PWM0_DUTY_MAX));
+    }
+
+    /// 自動電源オフまでの時間 [分]（0 = しない）。
+    pub fn auto_off_min(&self) -> u8 {
+        self.settings.auto_off_min
+    }
+
+    /// 自動電源オフまでの時間を変えて保存する。
+    pub fn set_auto_off_min(&mut self, min: u8) {
+        self.settings.auto_off_min = min;
+        power::save_settings(&mut self.i2c, self.settings);
+    }
+
+    /// 電池電圧 [mV]。
+    pub fn battery_mv(&mut self) -> Option<u16> {
+        power::read_vbat_mv(&mut self.i2c)
+    }
+
+    /// USB から給電されているか。
+    pub fn usb_present(&mut self) -> bool {
         power::usb_present(&mut self.i2c)
     }
 

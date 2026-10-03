@@ -78,6 +78,15 @@ pub fn text_ink_centered(canvas: &mut Canvas<'_>, font: &[Glyph], s: &str, cente
     text(canvas, font, s, center + Point::new(0, dy));
 }
 
+/// 文字列の幅 [px]（送り幅の合計）。
+pub fn text_width(font: &[Glyph], s: &str) -> i32 {
+    s.bytes()
+        .filter_map(|c| font.iter().find(|g| g.ch == c))
+        .map(|g| i32::from(g.adv))
+        .sum::<i32>()
+        / 16
+}
+
 /// 数字の文字列を `center` を中心に描く（上下は書体の行の中央・字形の無い文字は飛ばす）。
 pub fn text(canvas: &mut Canvas<'_>, font: &[Glyph], s: &str, center: Point) {
     let find = |c: u8| font.iter().find(|g| g.ch == c);

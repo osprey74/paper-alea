@@ -10,6 +10,7 @@ pub mod iching;
 pub mod launcher;
 pub mod omikuji;
 pub mod rune;
+pub mod settings;
 pub mod stick;
 pub mod tarot;
 pub mod yesno;

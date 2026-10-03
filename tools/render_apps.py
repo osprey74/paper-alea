@@ -357,6 +357,10 @@ def build():
     from render_m5 import build_m5
     build_m5(atlas, out)
 
+    # 設定画面。
+    from render_m6 import build_m6
+    build_m6(atlas, out)
+
     return atlas, out
 
 
