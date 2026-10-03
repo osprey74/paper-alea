@@ -333,3 +333,4 @@ Developer ページの「Design preview」で画像として実機確認済み�
 - 実装：`alea-core::settings`（テスト 4 件）、`board/power.rs`（フロントライト・VBAT・RTC RAM）、`apps/settings.rs`、`tools/render_m6.py`、`Action::OpenId`・`Action::Close`。
 - **実機確認済み（総司さん）**。
 - 記事用のスクリーンショットは `tools/screenshots.py`（未コミット・`tools/out/screenshots/`）。
+- **v1.1.0 としてリリース（2026-10-03）**：配布物 `alea-fw-v1.1.0-merged.bin` を実機に書き込み、起動と設定の復元を確認。

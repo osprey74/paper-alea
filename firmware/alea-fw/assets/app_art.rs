@@ -864,7 +864,7 @@ pub const RUNE_KANA_Y: i32 = 530;
 pub const RUNE_KANA_GAP: i32 = 12;
 /// 名前（ログ用）。
 pub const RUNE_NAMES: [&str; 24] = ["FEHU", "URUZ", "THURISAZ", "ANSUZ", "RAIDHO", "KENAZ", "GEBO", "WUNJO", "HAGALAZ", "NAUDIZ", "ISA", "JERA", "EIHWAZ", "PERTHRO", "ALGIZ", "SOWILO", "TIWAZ", "BERKANO", "EHWAZ", "MANNAZ", "LAGUZ", "INGWAZ", "DAGAZ", "OTHALA"];
-/// 設定画面の台紙（札はすべて未選択の姿・最下部に Alea v1.0.0）。
+/// 設定画面の台紙（札はすべて未選択の姿・最下部に Alea v1.1.0）。
 pub const SETTINGS_FRAME: Sprite = Sprite { x: 14, y: 14, w: 452, h: 772, off: 1070104 };
 /// バックライトの札の矩形 [消灯, 弱, 強]。
 pub const SETTINGS_LIGHT: [(i32, i32, i32, i32); 3] = [(40, 178, 129, 64), (175, 178, 130, 64), (311, 178, 129, 64)];

@@ -4,7 +4,7 @@
 # target / build-std / linkall を供給）。依存の版は Nostos（nostos-fw）と揃える。
 [package]
 name = "alea-fw"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2021"
 publish = false
 description = "Alea — M5Stack PaperMono 向け「偶然」ミニアプリ集"

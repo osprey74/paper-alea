@@ -13,11 +13,11 @@ dependencies = [
 
 [[package]]
 name = "alea-core"
-version = "1.0.0"
+version = "1.1.0"
 
 [[package]]
 name = "alea-fw"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "alea-core",
  "aligned",

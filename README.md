@@ -42,7 +42,7 @@ A pocket collection of "chance" apps for the M5Stack PaperMono. Shake the device
 Download `alea-fw-vX.Y.Z-merged.bin` from Releases and write it at offset 0x0 with espflash.
 
 ```powershell
-espflash write-bin 0x0 alea-fw-v1.0.0-merged.bin
+espflash write-bin 0x0 alea-fw-v1.1.0-merged.bin
 ```
 
 タロットを使う場合は、別途カード画像を microSD に用意する必要があります（下記・カード画像はこのリポジトリに含まれていません）。
