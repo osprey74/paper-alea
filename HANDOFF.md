@@ -290,3 +290,12 @@ Developer ページの「Design preview」で画像として実機確認済み�
   1. PC で `python tools/convert_cards.py` と `python tools/render_tarot.py` を実行し、`sd/alea/tarot/` の `img/`・`cap/`・`word/` を microSD の `/alea/tarot/` にコピーする。
   2. ランチャーで I（タロット）を開く → 裏面の待機画面。振る → カード・名前・正逆（4 階調）。B → キーワード（今の向きの札が黒地）。B → カードに戻る。A → ランチャー。
   3. 確認したいこと：4 階調の濃さ（D-2）、逆位置の回転、正逆が偏らないか（シリアルの `[tarot]` ログ）、表示までの時間。
+
+## 11. M4（棒倒し・あみだくじ・おみくじ）（2026-10-03）
+
+- デザイン：キャンバス 4 段目で確定（あみだくじの案内は「振って引く」）。
+- 実装：`alea-core` の `stick`・`amida`・`omikuji`（テスト 8 件）、`tools/render_m4.py`（部品）、`tools/data/omikuji.json`（文）、
+  `apps/{stick,amida,omikuji}.rs`。3 本とも microSD 不要。
+- 実機で直した点：あみだくじの本数の案内 20→22px、おみくじの番号 18→20px・11 以降は縦中横・2 値化の境目 170。
+- **実機確認済み（総司さん）**。おみくじの文 30 文も確認済み。
+- 次：M5（易・ルーン）。

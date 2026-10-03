@@ -6,8 +6,11 @@
 
 #![no_std]
 
+pub mod amida;
 pub mod dice;
+pub mod omikuji;
 pub mod shake;
+pub mod stick;
 pub mod tarot;
 
 /// 32 ビット一様乱数の供給源。

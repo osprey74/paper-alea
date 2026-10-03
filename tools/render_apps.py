@@ -60,15 +60,15 @@ def new():
     return img, ImageDraw.Draw(img)
 
 
-def to_mask(img: Image.Image) -> np.ndarray:
-    """縮小して 2 値化する（True = 黒）。"""
-    return np.asarray(img.resize((W, H), Image.LANCZOS)) < 128
+def to_mask(img: Image.Image, threshold: int = 128) -> np.ndarray:
+    """縮小して 2 値化する（True = 黒）。threshold を上げると細い線が残りやすい。"""
+    return np.asarray(img.resize((W, H), Image.LANCZOS)) < threshold
 
 
-def render(fn) -> np.ndarray:
+def render(fn, threshold: int = 128) -> np.ndarray:
     img, d = new()
     fn(d)
-    return to_mask(img)
+    return to_mask(img, threshold)
 
 
 def rule(d: ImageDraw.ImageDraw, cx: float, y: float, width: float, diamond: float):
@@ -348,6 +348,10 @@ def build():
                                                                     spacing_em=0.08))), f"{word}。")
     const("YESNO_KANJI_YES", Sprite(render(lambda d: text_center(d, 240, 536, "是", font_mincho(44), BLACK))), "是。")
     const("YESNO_KANJI_NO", Sprite(render(lambda d: text_center(d, 240, 536, "非", font_mincho(44), BLACK))), "非。")
+
+    # 棒倒し・あみだくじ・おみくじ（M4）。
+    from render_m4 import build_m4
+    build_m4(atlas, out)
 
     return atlas, out
 

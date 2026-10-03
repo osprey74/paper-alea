@@ -14,6 +14,5 @@ Copy this "alea" folder to the root of a FAT32 microSD card.
                          タロットのファイルは生成物で、リポジトリには含めない。
   iching/hexagrams.json  64 hexagrams / 64卦
   rune/runes.json        24 runes / 24文字
-  omikuji/omikuji.json   fortunes / 運勢と一言
 
 See DESIGN.md section 7 for details. / 詳細は DESIGN.md §7 を参照。

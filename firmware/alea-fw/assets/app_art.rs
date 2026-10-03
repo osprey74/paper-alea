@@ -151,3 +151,198 @@ pub const YESNO_WAIT: Sprite = Sprite { x: 219, y: 324, w: 43, h: 95, off: 32812
 pub const YESNO_KANJI_YES: Sprite = Sprite { x: 220, y: 518, w: 39, h: 41, off: 328692 };
 /// 非。
 pub const YESNO_KANJI_NO: Sprite = Sprite { x: 220, y: 518, w: 40, h: 41, off: 328897 };
+/// 棒倒しの台紙（方式の札はどちらも未選択の姿）。
+pub const STICK_FRAME: Sprite = Sprite { x: 14, y: 14, w: 452, h: 772, off: 329102 };
+/// 方式の札の矩形 (x, y, w, h)。[左右, 八方位]。
+pub const STICK_CHIPS: [(i32, i32, i32, i32); 2] = [(127, 134, 110, 40), (243, 134, 110, 40)];
+/// 方位盤。
+pub const STICK_COMPASS: Sprite = Sprite { x: 59, y: 202, w: 362, h: 362, off: 373106 };
+/// 8 方位に倒れた棒（0=北から時計回り）。
+pub const STICK_DIR: [Sprite; 8] = [
+    Sprite { x: 229, y: 249, w: 22, h: 142, off: 389758 },
+    Sprite { x: 231, y: 285, w: 107, h: 106, off: 390184 },
+    Sprite { x: 231, y: 371, w: 142, h: 22, off: 391668 },
+    Sprite { x: 231, y: 374, w: 107, h: 105, off: 392064 },
+    Sprite { x: 229, y: 374, w: 22, h: 141, off: 393534 },
+    Sprite { x: 143, y: 374, w: 106, h: 105, off: 393957 },
+    Sprite { x: 107, y: 371, w: 142, h: 22, off: 395427 },
+    Sprite { x: 143, y: 285, w: 106, h: 106, off: 395823 },
+];
+/// 方位盤の中心の支点（待機中）。
+pub const STICK_PIVOT: Sprite = Sprite { x: 231, y: 374, w: 18, h: 17, off: 397307 };
+/// 方位名（和）。
+pub const STICK_DIR_JA: [Sprite; 8] = [
+    Sprite { x: 217, y: 586, w: 47, h: 47, off: 397358 },
+    Sprite { x: 185, y: 584, w: 109, h: 49, off: 397640 },
+    Sprite { x: 217, y: 584, w: 46, h: 49, off: 398326 },
+    Sprite { x: 185, y: 584, w: 109, h: 49, off: 398620 },
+    Sprite { x: 217, y: 585, w: 46, h: 48, off: 399306 },
+    Sprite { x: 185, y: 585, w: 109, h: 48, off: 399594 },
+    Sprite { x: 217, y: 585, w: 46, h: 48, off: 400266 },
+    Sprite { x: 185, y: 585, w: 109, h: 48, off: 400554 },
+];
+/// 方位名（英）。
+pub const STICK_DIR_EN: [Sprite; 8] = [
+    Sprite { x: 188, y: 649, w: 103, h: 14, off: 401226 },
+    Sprite { x: 142, y: 649, w: 197, h: 14, off: 401408 },
+    Sprite { x: 205, y: 649, w: 71, h: 14, off: 401758 },
+    Sprite { x: 144, y: 649, w: 193, h: 14, off: 401884 },
+    Sprite { x: 191, y: 649, w: 98, h: 14, off: 402234 },
+    Sprite { x: 142, y: 649, w: 197, h: 14, off: 402416 },
+    Sprite { x: 202, y: 649, w: 76, h: 14, off: 402766 },
+    Sprite { x: 139, y: 649, w: 202, h: 14, off: 402906 },
+];
+/// 8 方位の待機中の「?」。
+pub const STICK_EIGHT_WAIT: Sprite = Sprite { x: 232, y: 588, w: 17, h: 38, off: 403270 };
+/// 地面・立っていた位置の破線・支点。
+pub const STICK_GROUND: Sprite = Sprite { x: 60, y: 300, w: 360, h: 124, off: 403384 };
+/// 左右に倒れた棒。[左, 右]。
+pub const STICK_SIDE: [Sprite; 2] = [
+    Sprite { x: 87, y: 329, w: 158, h: 83, off: 408964 },
+    Sprite { x: 235, y: 329, w: 158, h: 83, off: 410624 },
+];
+/// 立っている棒（左右の待機中）。
+pub const STICK_STAND: Sprite = Sprite { x: 229, y: 269, w: 22, h: 142, off: 412284 };
+/// 左・右（和）。
+pub const STICK_SIDE_JA: [Sprite; 2] = [
+    Sprite { x: 196, y: 500, w: 87, h: 88, off: 412710 },
+    Sprite { x: 196, y: 500, w: 87, h: 90, off: 413678 },
+];
+/// LEFT・RIGHT。
+pub const STICK_SIDE_EN: [Sprite; 2] = [
+    Sprite { x: 207, y: 613, w: 67, h: 14, off: 414668 },
+    Sprite { x: 194, y: 613, w: 93, h: 14, off: 414794 },
+];
+/// 左右の待機中の「?」。
+pub const STICK_SIDE_WAIT: Sprite = Sprite { x: 227, y: 510, w: 27, h: 61, off: 414962 };
+/// あみだくじの台紙。
+pub const AMIDA_FRAME: Sprite = Sprite { x: 14, y: 14, w: 452, h: 772, off: 415206 };
+/// 本数の案内（2〜6 本）。
+pub const AMIDA_NOTE: [Sprite; 5] = [
+    Sprite { x: 72, y: 143, w: 337, h: 21, off: 459210 },
+    Sprite { x: 72, y: 143, w: 337, h: 21, off: 460113 },
+    Sprite { x: 73, y: 143, w: 336, h: 21, off: 461016 },
+    Sprite { x: 72, y: 143, w: 337, h: 21, off: 461898 },
+    Sprite { x: 72, y: 143, w: 337, h: 21, off: 462801 },
+];
+/// 上の札のローマ数字（中心からの相対）。
+pub const AMIDA_ROMAN: [Sprite; 6] = [
+    Sprite { x: -2, y: -7, w: 4, h: 15, off: 463704 },
+    Sprite { x: -6, y: -7, w: 12, h: 15, off: 463719 },
+    Sprite { x: -10, y: -7, w: 20, h: 15, off: 463749 },
+    Sprite { x: -10, y: -7, w: 21, h: 15, off: 463794 },
+    Sprite { x: -7, y: -7, w: 14, h: 15, off: 463839 },
+    Sprite { x: -11, y: -7, w: 21, h: 15, off: 463869 },
+];
+/// 下の番号（中心からの相対）。
+pub const AMIDA_GOAL: [Sprite; 6] = [
+    Sprite { x: -3, y: -2, w: 6, h: 13, off: 463914 },
+    Sprite { x: -5, y: -3, w: 11, h: 14, off: 463927 },
+    Sprite { x: -5, y: -3, w: 11, h: 23, off: 463955 },
+    Sprite { x: -6, y: -3, w: 13, h: 20, off: 464001 },
+    Sprite { x: -5, y: -3, w: 10, h: 23, off: 464041 },
+    Sprite { x: -6, y: -11, w: 13, h: 22, off: 464087 },
+];
+/// 上の札の上端。
+pub const AMIDA_BOX_TOP: i32 = 176;
+/// 上の札・下の番号の枠の幅。
+pub const AMIDA_BOX_W: i32 = 52;
+/// 上の札の高さ。
+pub const AMIDA_BOX_H: i32 = 44;
+/// 縦線の上端。
+pub const AMIDA_LADDER_TOP: i32 = 228;
+/// 縦線の下端。
+pub const AMIDA_LADDER_BOTTOM: i32 = 642;
+/// 下の番号の枠の上端。
+pub const AMIDA_GOAL_TOP: i32 = 652;
+/// 下の番号の枠の高さ。
+pub const AMIDA_GOAL_H: i32 = 48;
+/// 両端の縦線の間隔の上限。
+pub const AMIDA_SPAN: i32 = 340;
+/// 縦線の間隔の上限（本数が少ないとき）。
+pub const AMIDA_MAX_SPACING: i32 = 110;
+/// おみくじの台紙（紙片と 2 本の罫を含む）。
+pub const OMIKUJI_FRAME: Sprite = Sprite { x: 14, y: 14, w: 452, h: 772, off: 464131 };
+/// 運勢（縦書き）。
+pub const OMIKUJI_FORTUNE: [Sprite; 6] = [
+    Sprite { x: 210, y: 302, w: 61, h: 132, off: 508135 },
+    Sprite { x: 210, y: 336, w: 60, h: 64, off: 509191 },
+    Sprite { x: 210, y: 302, w: 60, h: 132, off: 509703 },
+    Sprite { x: 209, y: 303, w: 61, h: 131, off: 510759 },
+    Sprite { x: 209, y: 302, w: 62, h: 132, off: 511807 },
+    Sprite { x: 212, y: 338, w: 57, h: 61, off: 512863 },
+];
+/// 待機中の「?」。
+pub const OMIKUJI_WAIT: Sprite = Sprite { x: 230, y: 342, w: 21, h: 46, off: 513351 };
+/// 番号（第一番〜・縦書き）。運勢の順に一言を通し番号にしたもの。
+pub const OMIKUJI_NUMBER: [Sprite; 30] = [
+    Sprite { x: 231, y: 199, w: 18, h: 69, off: 513489 },
+    Sprite { x: 231, y: 199, w: 18, h: 69, off: 513696 },
+    Sprite { x: 231, y: 199, w: 18, h: 69, off: 513903 },
+    Sprite { x: 231, y: 199, w: 18, h: 69, off: 514110 },
+    Sprite { x: 231, y: 199, w: 18, h: 69, off: 514317 },
+    Sprite { x: 231, y: 199, w: 18, h: 69, off: 514524 },
+    Sprite { x: 231, y: 199, w: 18, h: 69, off: 514731 },
+    Sprite { x: 231, y: 199, w: 18, h: 69, off: 514938 },
+    Sprite { x: 231, y: 199, w: 18, h: 69, off: 515145 },
+    Sprite { x: 231, y: 199, w: 18, h: 69, off: 515352 },
+    Sprite { x: 221, y: 199, w: 38, h: 69, off: 515559 },
+    Sprite { x: 221, y: 199, w: 38, h: 69, off: 515904 },
+    Sprite { x: 221, y: 199, w: 38, h: 69, off: 516249 },
+    Sprite { x: 221, y: 199, w: 37, h: 69, off: 516594 },
+    Sprite { x: 221, y: 199, w: 38, h: 69, off: 516939 },
+    Sprite { x: 221, y: 199, w: 38, h: 69, off: 517284 },
+    Sprite { x: 221, y: 199, w: 38, h: 69, off: 517629 },
+    Sprite { x: 221, y: 199, w: 38, h: 69, off: 517974 },
+    Sprite { x: 221, y: 199, w: 38, h: 69, off: 518319 },
+    Sprite { x: 221, y: 199, w: 38, h: 69, off: 518664 },
+    Sprite { x: 211, y: 199, w: 58, h: 69, off: 519009 },
+    Sprite { x: 211, y: 199, w: 58, h: 69, off: 519561 },
+    Sprite { x: 211, y: 199, w: 58, h: 69, off: 520113 },
+    Sprite { x: 211, y: 199, w: 57, h: 69, off: 520665 },
+    Sprite { x: 211, y: 199, w: 58, h: 69, off: 521217 },
+    Sprite { x: 211, y: 199, w: 58, h: 69, off: 521769 },
+    Sprite { x: 211, y: 199, w: 58, h: 69, off: 522321 },
+    Sprite { x: 211, y: 199, w: 58, h: 69, off: 522873 },
+    Sprite { x: 211, y: 199, w: 58, h: 69, off: 523425 },
+    Sprite { x: 221, y: 199, w: 38, h: 69, off: 523977 },
+];
+/// 一言（縦書き・通し番号順）。
+pub const OMIKUJI_MESSAGE: [Sprite; 30] = [
+    Sprite { x: 192, y: 456, w: 96, h: 197, off: 524322 },
+    Sprite { x: 192, y: 456, w: 96, h: 195, off: 526686 },
+    Sprite { x: 193, y: 456, w: 95, h: 195, off: 529026 },
+    Sprite { x: 192, y: 456, w: 96, h: 197, off: 531366 },
+    Sprite { x: 192, y: 456, w: 96, h: 197, off: 533730 },
+    Sprite { x: 193, y: 456, w: 96, h: 195, off: 536094 },
+    Sprite { x: 192, y: 456, w: 96, h: 173, off: 538434 },
+    Sprite { x: 192, y: 456, w: 96, h: 195, off: 540510 },
+    Sprite { x: 193, y: 456, w: 96, h: 195, off: 542850 },
+    Sprite { x: 192, y: 456, w: 96, h: 195, off: 545190 },
+    Sprite { x: 192, y: 456, w: 97, h: 174, off: 547530 },
+    Sprite { x: 192, y: 456, w: 96, h: 195, off: 549792 },
+    Sprite { x: 192, y: 456, w: 96, h: 195, off: 552132 },
+    Sprite { x: 192, y: 456, w: 96, h: 153, off: 554472 },
+    Sprite { x: 192, y: 456, w: 96, h: 195, off: 556308 },
+    Sprite { x: 192, y: 456, w: 96, h: 195, off: 558648 },
+    Sprite { x: 193, y: 456, w: 95, h: 173, off: 560988 },
+    Sprite { x: 192, y: 456, w: 96, h: 217, off: 563064 },
+    Sprite { x: 193, y: 456, w: 95, h: 195, off: 565668 },
+    Sprite { x: 192, y: 456, w: 97, h: 217, off: 568008 },
+    Sprite { x: 192, y: 456, w: 96, h: 196, off: 570829 },
+    Sprite { x: 192, y: 456, w: 96, h: 196, off: 573181 },
+    Sprite { x: 192, y: 456, w: 96, h: 173, off: 575533 },
+    Sprite { x: 192, y: 456, w: 97, h: 195, off: 577609 },
+    Sprite { x: 192, y: 456, w: 96, h: 196, off: 580144 },
+    Sprite { x: 192, y: 456, w: 96, h: 173, off: 582496 },
+    Sprite { x: 193, y: 456, w: 95, h: 195, off: 584572 },
+    Sprite { x: 192, y: 456, w: 96, h: 173, off: 586912 },
+    Sprite { x: 192, y: 456, w: 96, h: 130, off: 588988 },
+    Sprite { x: 192, y: 456, w: 96, h: 174, off: 590548 },
+];
+/// 運勢の重み。
+pub const OMIKUJI_WEIGHTS: [u32; 6] = [15, 20, 20, 18, 15, 12];
+/// 運勢ごとの一言の数。
+pub const OMIKUJI_COUNTS: [u32; 6] = [5, 5, 5, 5, 5, 5];
+/// 運勢の名前（ログ用）。
+pub const OMIKUJI_LABELS: [&str; 6] = ["大吉", "吉", "中吉", "小吉", "末吉", "凶"];
